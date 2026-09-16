@@ -36,7 +36,7 @@
 
 | Имя | GitHub | Роль |
 |-----|--------|------|
-| Анастасия Юмаева | @ | Product / VO |
+| Анастасия Юмаева | @nestikkk | Product / VO |
 | Кизименко Алёна | @AlenKizimenko | AI engineer |
 | Ларина Татьяна | @Thanoss-blip | Delivery |
 | Казакова Мария | @OVENAsHome | Quality & safety |
