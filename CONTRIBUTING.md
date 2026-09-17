@@ -12,7 +12,7 @@
 |---|---|
 | `feature/product*` | Задачи Product / VO |
 | `feature/ai*` | Задачи AI Engineer |
-| `feature/delivery*` | Задачи Delivery |
+| `feature/delivery_larina` | Задачи Delivery |
 | `feature/quality*` | Задачи Quality & Safety |
 | `fix/*` | Исправление бага |
 
