@@ -22,7 +22,7 @@ https://event-platform-tanoss.amvera.io
    ```
 2. Запушить ветку в `master` Amvera:
    ```text
-   git push amvera feature/delivery:master
+   git push amvera feature/delivery_larina:master
    ```
 3. Amvera автоматически обнаружит изменения и начнёт сборку.
 
