@@ -40,7 +40,7 @@ event-platform/
 │           └── styles/          # Стили
 │
 ├── services/                    # Backend-сервисы
-│   ├── extractor/               # Извлечение даты/места/цены из текста анонса
+│   ├── extractor/               # Извлечение даты/места/цены из анонса
 │   ├── page-composer/           # Сборка страницы из блоков
 │   ├── vk-publisher/            # Публикация поста в VK
 │   └── mailer/                  # Email-рассылка
@@ -55,6 +55,7 @@ event-platform/
 ├── scripts/                     # Вспомогательные скрипты
 │
 ├── .github/
+│   ├── ISSUE_TEMPLATE/          # Шаблоны issue
 │   ├── workflows/ci.yml         # CI: линт, проверки, тесты
 │   └── PULL_REQUEST_TEMPLATE.md # Шаблон PR
 │
@@ -63,7 +64,8 @@ event-platform/
 ├── compose.dev.yml              # Docker Compose для dev-среды
 ├── Dockerfile                   # Сборка статики (Nginx)
 ├── CONTRIBUTING.md              # Правила веток и PR
-└── README.md
+├── README.md
+└── git
 ```
 
 ### Требования
