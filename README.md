@@ -24,7 +24,47 @@
 - **Инфраструктура:** Docker, Docker Compose
 - **CI:** GitHub Actions
 
-## Быстрый старт
+## Структура репозитория
+
+```text
+event-platform/
+├── apps/
+│   └── site/                    # Фронтенд
+│       ├── public/              # Статика (index.html)
+│       └── src/                 # Исходники
+│           ├── api/             # Клиент к backend-сервисам
+│           ├── components/      # Переиспользуемые компоненты
+│           ├── hooks/           # React-хуки
+│           ├── pages/           # Страницы (дашборд, страница мероприятия)
+│           ├── renderer/        # Рендер блоков страницы
+│           └── styles/          # Стили
+│
+├── services/                    # Backend-сервисы
+│   ├── extractor/               # Извлечение даты/места/цены из текста анонса
+│   ├── page-composer/           # Сборка страницы из блоков
+│   ├── vk-publisher/            # Публикация поста в VK
+│   └── mailer/                  # Email-рассылка
+│
+├── libs/
+│   └── shared-types/            # Общие типы данных (Event, Block)
+│
+├── docs/
+│   ├── deploy.md                # Инструкция по деплою
+│   └── onboarding.md            # Гайд для новых участников
+│
+├── scripts/                     # Вспомогательные скрипты
+│
+├── .github/
+│   ├── workflows/ci.yml         # CI: линт, проверки, тесты
+│   └── PULL_REQUEST_TEMPLATE.md # Шаблон PR
+│
+├── .env.example                 # Шаблон переменных окружения
+├── .gitignore
+├── compose.dev.yml              # Docker Compose для dev-среды
+├── Dockerfile                   # Сборка статики (Nginx)
+├── CONTRIBUTING.md              # Правила веток и PR
+└── README.md
+```
 
 ### Требования
 
