@@ -65,6 +65,7 @@ event-platform/
 ├── Dockerfile                   # Сборка статики (Nginx)
 ├── CONTRIBUTING.md              # Правила веток и PR
 ├── README.md
+├── compose.yml
 └── git
 ```
 
@@ -93,5 +94,5 @@ event-platform/
 git clone https://github.com/vstu-sii/sova-so-skakalkoy-zmct.git
 cd sova-so-skakalkoy-zmct
 cp .env.example .env
-docker compose -f compose.dev.yml up -d
+docker compose up -d
 
