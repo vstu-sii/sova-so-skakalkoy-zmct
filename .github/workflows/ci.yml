@@ -36,9 +36,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create dummy .env for validation
-        run: cp .env.example .env
-
       - name: Validate default compose entrypoint
         run: docker compose config --quiet
         env:
