@@ -45,7 +45,7 @@ cp .env.example .env
 Подними окружение:
 
 ```bash
-docker compose -f compose.dev.yml up -d
+docker compose up -d
 ```
 
 Проверь, что работает: <http://localhost:8080>
