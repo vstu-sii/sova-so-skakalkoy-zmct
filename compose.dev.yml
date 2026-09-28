@@ -1,4 +1,3 @@
-
 services:
   # === База данных ===
   db:
@@ -28,7 +27,8 @@ services:
       db:
         condition: service_healthy
     env_file:
-      - .env
+      - path: .env
+        required: false
 
   # === VK Publisher (заглушка) ===
   vk-publisher:
@@ -39,7 +39,8 @@ services:
       db:
         condition: service_healthy
     env_file:
-      - .env
+      - path: .env
+        required: false
 
   # === Mailer (заглушка) ===
   mailer:
@@ -50,7 +51,8 @@ services:
       db:
         condition: service_healthy
     env_file:
-      - .env
+      - path: .env
+        required: false
 
   # === Page Composer (заглушка) ===
   page-composer:
@@ -61,7 +63,8 @@ services:
       db:
         condition: service_healthy
     env_file:
-      - .env
+      - path: .env
+        required: false
 
   # === Frontend (заглушка) ===
   site:
@@ -71,6 +74,9 @@ services:
       - "8080:80"
     volumes:
       - ./apps/site/public:/usr/share/nginx/html:ro
+    env_file:
+      - path: .env
+        required: false
 
 volumes:
   db_data:
