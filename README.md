@@ -93,6 +93,5 @@ event-platform/
 ```bash
 git clone https://github.com/vstu-sii/sova-so-skakalkoy-zmct.git
 cd sova-so-skakalkoy-zmct
-cp .env.example .env
 docker compose up -d
 
