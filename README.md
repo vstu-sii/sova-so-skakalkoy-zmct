@@ -149,36 +149,39 @@ npx -y aact check
 
 ```text
 event-platform/
-├── apps/
-│   └── site/                    # Фронтенд
-│       ├── public/              # Статика (index.html)
-│       └── src/
-│           ├── api/
-│           ├── components/
-│           ├── hooks/
-│           ├── pages/
-│           ├── renderer/
-│           └── styles/
-│
 ├── services/                    # Backend-сервисы
-│   ├── extractor/               # Извлечение даты/места/цены
-│   ├── page-composer/           # Сборка страницы из блоков
-│   ├── vk-publisher/            # Публикация в VK
-│   └── mailer/                  # Email-рассылка
+│   ├── extractor/
+│   │   ├── main.py
+│   │   ├── database.py
+│   │   ├── requirements.txt
+│   │   ├── Dockerfile
+│   │   └── models/              # SQLAlchemy-модели
+│   ├── page-composer/
+│   │   ├── main.py
+│   │   ├── requirements.txt
+│   │   └── Dockerfile
+│   ├── vk-publisher/
+│   │   ├── main.py
+│   │   ├── requirements.txt
+│   │   └── Dockerfile
+│   └── mailer/
+│       ├── main.py
+│       ├── requirements.txt
+│       └── Dockerfile
 │
-├── libs/
-│   └── shared-types/            # Общие типы (Event, Block)
-│
-├── frontend/                    # Прототип UI
-│   └── prototype/               # Next.js-прототип (v0)
-│       ├── app/                 # Страницы (expert, public)
-│       ├── components/          # Компоненты экранов
-│       ├── lib/                 # Утилиты
-│       ├── public/              # Статика прототипа
-│       └── screenshots/         # Скриншоты экранов
+├── frontend/                    # Фронтенд (Next.js)
+│   ├── app/                     # Страницы
+│   ├── components/              # Компоненты
+│   ├── lib/                     # api.ts, adapters.ts
+│   ├── public/                  # Статика
+│   ├── prototype/               # Прототип из лабы 2
+│   ├── Dockerfile
+│   ├── package.json
+│   └── ...
 │
 ├── database/                    # Схема БД
 │   ├── schema.sql
+│   ├── erd.puml
 │   └── migrations/
 │       └── 001_initial.sql
 │
@@ -193,27 +196,11 @@ event-platform/
 │   │   ├── 003-docker-compose.md
 │   │   ├── 004-plantuml-c4.md
 │   │   └── 005-aact.md
-│   ├── experiments/             # Эксперименты и отчёты
-│   │   ├── lab1.md
-│   │   ├── lab1-experiments.ipynb
-│   │   ├── examples.md
-│   │   └── prompts.md
-│   ├── quality/                 # Quality & Safety
-│   │   ├── dod-draft.md
-│   │   ├── golden-dataset-plan.md
-│   │   ├── success-criteria.md
-│   │   └── v0.1-draft.jsonl
-│   ├── brief.md
+│   ├── experiments/
+│   ├── quality/
+│   ├── agent-workflow.md        # Отчёт агентной разработки
 │   ├── deploy.md
-│   ├── glossary.md
-│   ├── hypotheses.md
-│   ├── insights.md
-│   ├── model-candidates.md
-│   ├── onboarding.md
-│   ├── prd.md
-│   └── research.md
-│
-├── scripts/                     # Вспомогательные скрипты
+│   └── onboarding.md
 │
 ├── .github/
 │   ├── ISSUE_TEMPLATE/
@@ -223,9 +210,10 @@ event-platform/
 ├── .env.example
 ├── .gitignore
 ├── aact.config.ts               # Конфиг AACT
-├── compose.yml                  # Default entrypoint (include → compose.dev.yml)
-├── compose.dev.yml              # Docker Compose для dev-среды
-├── Dockerfile
+├── compose.dev.yml              # Docker Compose
+├── compose.yml                  # Default entrypoint
+├── Dockerfile                   # Сборка фронтенда
+├── amvera.yml                   # Конфиг Amvera
 ├── CONTRIBUTING.md
 └── README.md
 ```
@@ -266,8 +254,7 @@ event-platform/
 
 ## Демо
 
-Прод: https://event-platform-tanoss.amvera.io
-
+Прод: нет
 ---
 
 ## Статус проекта
