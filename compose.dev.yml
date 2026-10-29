@@ -53,79 +53,100 @@ services:
       - vk-publisher
       - mailer
 
-  # === Extractor (заглушка) ===
+  # === Extractor ===
   extractor:
-    image: alpine:3.19
+    build:
+      context: ./services/extractor
+      dockerfile: Dockerfile
     container_name: event_platform_extractor
-    command: sh -c "echo '[extractor] placeholder running' && sleep infinity"
-    env_file:
-      - path: .env
-        required: false
-    networks:
-      - backend-net
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  # === VK Publisher (заглушка) ===
-  vk-publisher:
-    image: alpine:3.19
-    container_name: event_platform_vk_publisher
-    command: sh -c "echo '[vk-publisher] placeholder running' && sleep infinity"
-    env_file:
-      - path: .env
-        required: false
-    networks:
-      - backend-net
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  # === Mailer (заглушка) ===
-  mailer:
-    image: alpine:3.19
-    container_name: event_platform_mailer
-    command: sh -c "echo '[mailer] placeholder running' && sleep infinity"
-    env_file:
-      - path: .env
-        required: false
-    networks:
-      - backend-net
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  # === Page Composer (заглушка) ===
-  page-composer:
-    image: alpine:3.19
-    container_name: event_platform_page_composer
-    command: sh -c "echo '[page-composer] placeholder running' && sleep infinity"
-    env_file:
-      - path: .env
-        required: false
-    networks:
-      - backend-net
-    depends_on:
-      db:
-        condition: service_healthy
-
-  # === Frontend (заглушка) ===
-  site:
-    image: nginx:alpine
-    container_name: event_platform_site
-    restart: unless-stopped
     ports:
-      - "8080:80"
-    volumes:
-      - ./apps/site/public:/usr/share/nginx/html:ro
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql://event_platform:changeme@db:5432/event_platform
+    env_file:
+      - path: .env
+        required: false
+    networks:
+      - backend-net
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # === VK Publisher ===
+  vk-publisher:
+    build:
+      context: ./services/vk-publisher
+      dockerfile: Dockerfile
+    container_name: event_platform_vk_publisher
+    ports:
+      - "8003:8000"
+    env_file:
+      - path: .env
+        required: false
+    networks:
+      - backend-net
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # === Mailer ===
+  mailer:
+    build:
+      context: ./services/mailer
+      dockerfile: Dockerfile
+    container_name: event_platform_mailer
+    ports:
+      - "8004:8000"
+    env_file:
+      - path: .env
+        required: false
+    networks:
+      - backend-net
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # === Page Composer ===
+  page-composer:
+    build:
+      context: ./services/page-composer
+      dockerfile: Dockerfile
+    container_name: event_platform_page_composer
+    ports:
+      - "8002:8000"
+    env_file:
+      - path: .env
+        required: false
+    networks:
+      - backend-net
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # === Frontend (Next.js) ===
+  site:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: event_platform_site
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_EXTRACTOR_URL: http://extractor:8000
+      NEXT_PUBLIC_COMPOSER_URL: http://page-composer:8000
     networks:
       - frontend-net
+    depends_on:
+      - extractor
+      - page-composer
 
 networks:
   frontend-net:
