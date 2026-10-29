@@ -4,12 +4,18 @@ from datetime import date, datetime, timedelta
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from database import get_db
+from models.event import Event
+from models.expert import Expert
 
 app = FastAPI(title="extractor")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8080", "http://site:3000"],
+    allow_origins=["http://localhost:3000",
+                   "http://localhost:8080", "http://site:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,8 +52,10 @@ WEEKDAYS = {
 }
 
 TIME_RE = re.compile(r"\b([01]?\d|2[0-3])[:.]([0-5]\d)\b")
-DAY_MONTH_RE = re.compile(r"\b(\d{1,2})\s+(" + "|".join(MONTHS) + r")\b", re.IGNORECASE)
-WEEKDAY_RE = re.compile(r"\bв\s+(" + "|".join(WEEKDAYS) + r")\b", re.IGNORECASE)
+DAY_MONTH_RE = re.compile(
+    r"\b(\d{1,2})\s+(" + "|".join(MONTHS) + r")\b", re.IGNORECASE)
+WEEKDAY_RE = re.compile(
+    r"\bв\s+(" + "|".join(WEEKDAYS) + r")\b", re.IGNORECASE)
 
 PRICE_LABEL_RE = re.compile(
     r"(?:стоимость|цена)\D{0,20}?(\d[\d\s ]*(?:[.,]\d+)?)", re.IGNORECASE
@@ -58,9 +66,12 @@ PRICE_CURRENCY_RE = re.compile(
 FREE_RE = re.compile(r"\bбесплатно\b|вход\s+свободный", re.IGNORECASE)
 
 LOCATION_PATTERNS = [
-    re.compile(r"адрес\s*[:\-–—]?\s*(.+?)(?:\.(?:\s|$)|[\n!;]|$)", re.IGNORECASE),
-    re.compile(r"\b(в\s+(?:кафе|баре|клубе|ресторане|коворкинге|библиотеке|музее)\s+[^\n.,!;]+)", re.IGNORECASE),
-    re.compile(r"\b(на\s+(?:Невском|[А-ЯЁ][а-яё]+(?:ом|ой|ем)\s+(?:проспекте|улице))[^\n.,!;]*)", re.IGNORECASE),
+    re.compile(
+        r"адрес\s*[:\-–—]?\s*(.+?)(?:\.(?:\s|$)|[\n!;]|$)", re.IGNORECASE),
+    re.compile(
+        r"\b(в\s+(?:кафе|баре|клубе|ресторане|коворкинге|библиотеке|музее)\s+[^\n.,!;]+)", re.IGNORECASE),
+    re.compile(
+        r"\b(на\s+(?:Невском|[А-ЯЁ][а-яё]+(?:ом|ой|ем)\s+(?:проспекте|улице))[^\n.,!;]*)", re.IGNORECASE),
 ]
 
 
@@ -129,19 +140,60 @@ def parse_title(text: str) -> str:
 
 
 @app.post("/extract", response_model=ExtractResponse)
-def extract(req: ExtractRequest) -> ExtractResponse:
+def extract(req: ExtractRequest, db: Session = Depends(get_db)) -> ExtractResponse:
     if not req.raw_text or not req.raw_text.strip():
         raise HTTPException(status_code=400, detail="raw_text is empty")
     try:
         text = req.raw_text
+        parsed_title = parse_title(text)
+        parsed_date = parse_date(text)
+        parsed_location = parse_location(text)
+        parsed_price = parse_price(text)
+
+        # Сохраняем в БД
+        try:
+            expert = db.query(Expert).filter(
+                Expert.email == "default@example.com").first()
+            if not expert:
+                expert = Expert(email="default@example.com",
+                                name="Default Expert")
+                db.add(expert)
+                db.commit()
+                db.refresh(expert)
+
+            # date приходит как ISO-строка, конвертируем в datetime для TIMESTAMP
+            date_value = None
+            if parsed_date:
+                try:
+                    date_value = datetime.fromisoformat(parsed_date)
+                except ValueError:
+                    date_value = None
+
+            event = Event(
+                expert_id=expert.id,
+                title=parsed_title,
+                raw_text=text,
+                date=date_value,
+                location_raw=parsed_location,
+                price_amount=parsed_price,
+            )
+            db.add(event)
+            db.commit()
+            db.refresh(event)
+        except Exception as db_exc:  # noqa: BLE001
+            # Не ломаем парсинг, если БД недоступна
+            print(f"DB save error: {db_exc}")
+            db.rollback()
+
         return ExtractResponse(
-            title=parse_title(text),
-            date=parse_date(text),
-            location=parse_location(text),
-            price=parse_price(text),
+            title=parsed_title,
+            date=parsed_date,
+            location=parsed_location,
+            price=parsed_price,
         )
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"Failed to parse announcement text: {exc}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to parse announcement text: {exc}")
 
 
 @app.get("/register")
