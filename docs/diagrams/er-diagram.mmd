@@ -1,0 +1,72 @@
+erDiagram
+    ANNOUNCEMENT ||--o{ PARSING_JOB : "обрабатывается через"
+    PARSING_JOB }o--|| LLM_MODEL : "использует"
+    PARSING_JOB }o--|| PROMPT_TEMPLATE : "на основе"
+    PARSING_JOB ||--o| EVENT : "извлекает"
+    EVENT }o--|| PLACE : "проходит в"
+    PROMPT_TEMPLATE ||--o{ EXAMPLE : "содержит"
+    EXAMPLE ||--|| ANNOUNCEMENT : "основан на"
+
+    ANNOUNCEMENT {
+        int id PK
+        text raw_text "исходный текст анонса"
+        string source "источник (TG, сайт)"
+        datetime received_at "когда получен"
+        string status "новый / обработан / ошибка"
+    }
+
+    EVENT {
+        int id PK
+        string title "название события"
+        date event_date "дата"
+        time event_time "время"
+        int place_id FK "ссылка на место"
+        decimal price "цена (0 = бесплатно)"
+        string category "концерт/лекция/..."
+        datetime parsed_at "когда извлечён"
+    }
+
+    PLACE {
+        int id PK
+        string name "название площадки"
+        string address "адрес"
+        float lat "координаты"
+        float lon "координаты"
+    }
+
+    PARSING_JOB {
+        int id PK
+        int announcement_id FK
+        int model_id FK
+        int prompt_id FK
+        int input_tokens "токенов на вход"
+        int output_tokens "токенов на выход"
+        decimal cost_rub "стоимость в рублях"
+        string status "успех / ошибка"
+        datetime created_at
+    }
+
+    LLM_MODEL {
+        int id PK
+        string name "GPT-4o-mini, YandexGPT..."
+        string provider "OpenAI, Yandex, локально"
+        decimal input_price_per_1m "цена за 1M input"
+        decimal output_price_per_1m "цена за 1M output"
+        boolean is_active
+    }
+
+    PROMPT_TEMPLATE {
+        int id PK
+        string name "few-shot, function-call..."
+        text system_prompt "инструкция модели"
+        string approach "few-shot / function_calling / structured"
+        boolean is_active
+    }
+
+    EXAMPLE {
+        int id PK
+        int prompt_id FK
+        int announcement_id FK
+        json expected_json "эталонный ответ эксперта"
+        int sort_order "порядок в промпте"
+    }
