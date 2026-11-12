@@ -1,8 +1,8 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 app = FastAPI(title="page-composer")
 
@@ -15,8 +15,20 @@ app.add_middleware(
 )
 
 
+MAX_CAROUSEL_ITEMS = 10
+MediaId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,127}$")]
+
+
 class ComposeRequest(BaseModel):
     event_id: str
+    media: list[MediaId] = Field(default_factory=list, max_length=MAX_CAROUSEL_ITEMS)
+
+    @field_validator("media")
+    @classmethod
+    def unique_media(cls, value):
+        if len(set(value)) != len(value):
+            raise ValueError("duplicate media IDs")
+        return value
 
 
 class Block(BaseModel):
@@ -55,7 +67,10 @@ def build_blocks(event: dict[str, Any]) -> list[Block]:
 @app.post("/compose", response_model=ComposeResponse)
 def compose(req: ComposeRequest) -> ComposeResponse:
     event = load_event(req.event_id)
-    return ComposeResponse(event_id=req.event_id, blocks=build_blocks(event))
+    blocks = build_blocks(event)
+    if req.media:
+        blocks.append(Block(type="carousel", order=4, data={"media": req.media}))
+    return ComposeResponse(event_id=req.event_id, blocks=blocks)
 
 
 @app.get("/health")
