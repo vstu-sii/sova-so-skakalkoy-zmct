@@ -1,0 +1,44 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: delivery-usage
+    folder: Delivery
+    interval: 1m
+    rules:
+      - uid: delivery-token-spike
+        title: Ollama token consumption spike
+        condition: B
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: More than 20000 reported tokens in 5 minutes
+          description: Check the Tokens panel and extractor logs in Loki.
+        labels:
+          severity: warning
+          service: extractor
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: delivery-prometheus
+            model:
+              refId: A
+              datasource: {type: prometheus, uid: delivery-prometheus}
+              expr: 'sum(increase(extractor_llm_tokens_total[5m])) or vector(0)'
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: B
+              datasource: {type: __expr__, uid: __expr__}
+              type: classic_conditions
+              conditions:
+                - evaluator: {type: gt, params: [20000]}
+                  operator: {type: and}
+                  query: {params: [A]}
+                  reducer: {type: last, params: []}
+                  type: query

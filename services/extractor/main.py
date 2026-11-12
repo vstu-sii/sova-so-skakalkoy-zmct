@@ -3,12 +3,14 @@ import json
 import logging
 import os
 import time
-import uuid
+import hashlib
+import secrets
 from contextvars import ContextVar
 from zoneinfo import ZoneInfo
 
 import httpx
-from fastapi import Response
+from fastapi import Request, Response
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import ConfigDict, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 import re
@@ -22,6 +24,9 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.event import Event
 from models.expert import Expert
+from opentelemetry.trace import Status, StatusCode, SpanKind
+from budget import DailyBudget
+from telemetry import CALLS, FAILURES, LIMITS, TOKENS, UNACCOUNTED, log_event, setup, tracer
 
 app = FastAPI(title="extractor")
 
@@ -32,8 +37,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Extraction-Source", "X-Request-ID"],
+    expose_headers=["X-Extraction-Source", "X-Request-ID", "X-Trace-ID", "X-Model-Tier"],
 )
+setup(app)
 
 
 class ExtractRequest(BaseModel):
@@ -155,9 +161,38 @@ def parse_title(text: str) -> str:
 
 logger = logging.getLogger("uvicorn.error")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434").rstrip("/")
-LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:1.5b")
+MODELS = {
+    "standard": os.getenv("LLM_MODEL", "qwen2.5:1.5b"),
+    "economy": os.getenv("LLM_ECONOMY_MODEL", "qwen2.5:0.5b"),
+}
+CONTEXT_TOKENS = 2048
+OUTPUT_TOKENS = 256
+RESERVED_TOKENS = CONTEXT_TOKENS + OUTPUT_TOKENS
+budget = DailyBudget(
+    (int(os.getenv("DAILY_REQUEST_LIMIT", "100")), int(os.getenv("DAILY_TOKEN_LIMIT", "200000"))),
+    (int(os.getenv("ECONOMY_REQUEST_LIMIT", "20")), int(os.getenv("ECONOMY_TOKEN_LIMIT", "20000"))),
+)
+tokens_to_owner = json.loads(os.getenv("EXTRACTOR_API_TOKENS", "{}"))
+if not isinstance(tokens_to_owner, dict) or not all(k and isinstance(v, str) and v for k, v in tokens_to_owner.items()):
+    raise ValueError("EXTRACTOR_API_TOKENS must map nonempty tokens to owner IDs")
+demo_token = os.getenv("EXTRACTOR_DEMO_TOKEN")
+if demo_token:
+    tokens_to_owner.setdefault(demo_token, "local-demo")
+bearer = HTTPBearer(auto_error=False)
 llm_lock = asyncio.Lock()
 extraction_source = ContextVar("extraction_source", default="unknown")
+
+
+def authenticated_owner(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> str:
+    if credentials is not None:
+        supplied = credentials.credentials.encode("utf-8")
+        for token, owner in tokens_to_owner.items():
+            if secrets.compare_digest(supplied, token.encode("utf-8")):
+                return owner
+    LIMITS.labels("denied", "authorization").inc()
+    log_event("authorization_denied")
+    raise HTTPException(status_code=401, detail="Требуется действительный токен",
+                        headers={"WWW-Authenticate": "Bearer"})
 
 
 class LLMFields(BaseModel):
@@ -194,8 +229,10 @@ def extract_with_regex(text: str) -> dict:
                 location=parse_location(text), price=parse_price(text))
 
 
-async def extract_with_llm(text: str) -> dict:
-    started = time.monotonic()
+async def extract_with_llm(text: str, reservation) -> dict:
+    model = MODELS[reservation.tier]
+    tier = reservation.tier
+    actual_tokens = None
     extraction_source.set("unknown")
     reference_date = datetime.now(ZoneInfo("Europe/Moscow")).date().isoformat()
     schema = LLMFields.model_json_schema()
@@ -212,52 +249,64 @@ async def extract_with_llm(text: str) -> dict:
         "JSON Schema: " + json.dumps(schema, ensure_ascii=False)
     )
     payload = dict(
-        model=LLM_MODEL, stream=False, format=schema, keep_alive=0,
+        model=model, stream=False, format=schema, keep_alive=0,
         messages=[dict(role="system", content=prompt),
                   dict(role="user", content=text)],
-        options=dict(temperature=0, num_ctx=2048,
-                     num_predict=256, num_thread=2),
+        options=dict(temperature=0, num_ctx=CONTEXT_TOKENS,
+                     num_predict=OUTPUT_TOKENS, num_thread=2),
     )
     try:
         async with asyncio.timeout(180):
             async with llm_lock:
-                logger.info("ollama_request model=%s chars=%s",
-                            LLM_MODEL, len(text))
-                async with httpx.AsyncClient(
-                    timeout=httpx.Timeout(150.0, connect=5.0), trust_env=False
-                ) as client:
-                    response = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
-                    response.raise_for_status()
-                    envelope = response.json()
-                if envelope.get("done") is not True or envelope.get("done_reason") != "stop":
-                    raise ValueError("incomplete response")
-                content = envelope["message"]["content"]
-                if not isinstance(content, str):
-                    raise ValueError("non-string model response")
-                result = LLMFields.model_validate(
-                    json.loads(content)).model_dump()
-                extraction_source.set("ollama")
-                logger.info(
-                    "extraction_success source=ollama model=%s latency_ms=%.0f "
-                    "input_tokens=%s output_tokens=%s",
-                    LLM_MODEL, (time.monotonic()-started)*1000,
-                    envelope.get("prompt_eval_count"), envelope.get(
-                        "eval_count"),
-                )
-                return result
+                with CALLS.labels(tier).time(), tracer.start_as_current_span(
+                    "ollama.chat", kind=SpanKind.CLIENT, record_exception=False,
+                    set_status_on_exception=False,
+                ) as span:
+                    span.set_attribute("gen_ai.request.model", model)
+                    span.set_attribute("app.budget.tier", tier)
+                    try:
+                        async with httpx.AsyncClient(
+                            timeout=httpx.Timeout(150.0, connect=5.0), trust_env=False,
+                        ) as client:
+                            response = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
+                            span.set_attribute("http.response.status_code", response.status_code)
+                            response.raise_for_status()
+                            envelope = response.json()
+                        counts = [envelope.get("prompt_eval_count"), envelope.get("eval_count")]
+                        if all(type(count) is int and count >= 0 for count in counts):
+                            actual_tokens = sum(counts)
+                            for direction, count in zip(("input", "output"), counts):
+                                TOKENS.labels(tier, direction).inc(count)
+                                span.set_attribute(f"gen_ai.usage.{direction}_tokens", count)
+                        if envelope.get("done") is not True or envelope.get("done_reason") != "stop":
+                            raise ValueError("incomplete response")
+                        content = envelope["message"]["content"]
+                        if not isinstance(content, str):
+                            raise ValueError("non-string response")
+                        result = LLMFields.model_validate_json(content).model_dump()
+                        extraction_source.set("ollama")
+                        log_event("llm_success", model=model, tier=tier, tokens=actual_tokens)
+                        return result
+                    except Exception as exc:
+                        span.set_status(Status(StatusCode.ERROR, type(exc).__name__))
+                        raise
     except (httpx.HTTPError, TimeoutError, ValueError, KeyError, TypeError, AttributeError) as exc:
         extraction_source.set("regex")
-        logger.warning("extraction_fallback source=regex model=%s reason=%s latency_ms=%.0f",
-                       LLM_MODEL, type(exc).__name__, (time.monotonic()-started)*1000)
+        FAILURES.labels(tier).inc()
+        log_event("llm_fallback", model=model, tier=tier, reason=type(exc).__name__)
         return extract_with_regex(text)
+    finally:
+        if actual_tokens is None:
+            UNACCOUNTED.labels(tier).inc()
+        budget.settle(reservation, actual_tokens)
 
 
-def save_extracted_event(db: Session, text: str, parsed: dict) -> str:
+def save_extracted_event(db: Session, text: str, parsed: dict, owner: str) -> str:
     try:
         expert = db.query(Expert).filter(
             Expert.email == "default@example.com").first()
         if expert is None:
-            expert = Expert(email="default@example.com", name="Default Expert")
+            expert = Expert(email=email, name="Local Expert")
             db.add(expert)
             db.flush()
         event = Event(
@@ -276,21 +325,35 @@ def save_extracted_event(db: Session, text: str, parsed: dict) -> str:
 
 
 @app.post("/extract", response_model=ExtractResponse)
-async def extract(req: ExtractRequest, response: Response,
-                  db: Session = Depends(get_db)) -> ExtractResponse:
+async def extract(req: ExtractRequest, request: Request, response: Response,
+                  owner: str = Depends(authenticated_owner), db: Session = Depends(get_db)) -> ExtractResponse:
     text = req.raw_text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="raw_text is empty")
     if len(text) > 1500:
         raise HTTPException(
             status_code=422, detail="Для этого прототипа допустимо до 1500 символов")
-    request_id = str(uuid.uuid4())
-    parsed = await extract_with_llm(text)
+    request_id = request.state.request_id
+    reservation, reason = budget.reserve(owner, RESERVED_TOKENS)
+    if reservation is None:
+        LIMITS.labels("rejected", reason).inc()
+        log_event("budget_rejected", reason=reason, request_id=request_id)
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
+        tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        retry_after = max(1, int((tomorrow - now).total_seconds()))
+        raise HTTPException(status_code=429, detail="Дневной бюджет исчерпан",
+                            headers={"Retry-After": str(retry_after)})
+    if reservation.tier == "economy":
+        LIMITS.labels("degraded", reason).inc()
+        log_event("budget_degraded", reason=reason, request_id=request_id, model=MODELS["economy"])
+    parsed = await extract_with_llm(text, reservation)
+    response.headers["X-Model-Tier"] = reservation.tier
     source = extraction_source.get()
     try:
-        event_id = await run_in_threadpool(save_extracted_event, db, text, parsed)
+        event_id = await run_in_threadpool(save_extracted_event, db, text, parsed, owner)
     except Exception:
-        logger.exception("event_save_failed request_id=%s", request_id)
+        log_event("event_save_failed", request_id=request_id)
         raise HTTPException(
             status_code=503, detail="Не удалось сохранить мероприятие") from None
     response.headers["X-Extraction-Source"] = source
