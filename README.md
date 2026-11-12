@@ -241,7 +241,7 @@ event-platform/
 | Анастасия Юмаева | [@nestikkk](https://github.com/nestikkk) | Product / VO |
 | Алёна Кизименко | [@AlenKizimenko](https://github.com/AlenKizimenko) | AI Engineer |
 | Татьяна Ларина | [@Thanoss-blip](https://github.com/Thanoss-blip) | Delivery |
-| Мария Казакова | [@OVENAsHome](https://github.com/OVENAsHome) | Quality & Safety |
+| Мария Казакова | [@OVENAsHome](https://github.com/OVENAsHome) | Product / VO (с лабы 2; в лабе 1 — Quality & Safety) |
 
 ---
 
