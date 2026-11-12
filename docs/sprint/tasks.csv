@@ -1,0 +1,32 @@
+id;title;role;scope;estimate_h;remaining_h;status;done_on
+P-01;Бэклог спринта: оценка и разбиение задач, burndown;Product;—;3;0;done;2026-11-12
+P-02;Фиксация MVP-скоупа к Demo Day;Product;—;2;0;done;2026-11-12
+P-03;Приёмка 0: вход спринта (инкремент лабы 3 по DoD);Product;—;1;0;done;2026-11-12
+P-04;Исправить замечания лабы 3 (UC, validation-run, ссылки, дубль PRD);Product;—;1;0;done;2026-11-12
+P-05;Требования v3: PRD и UC по итогам месяца;Product;—;3;0;done;2026-11-12
+P-06;Приёмка недели 1 (18.11);Product;—;1;1;todo;
+P-07;Приёмка недели 2 (25.11);Product;—;1;1;todo;
+P-08;Приёмка недели 3 (02.12) и решение по резке скоупа;Product;—;1;1;todo;
+P-09;Приёмка недели 4 (09.12) и сценарий Demo Day;Product;—;2;2;todo;
+P-10;Human review 18 черновиков (M4/M5);Product+Quality;S5;2;2;todo;
+A-01;Единый контракт извлечения и ADR;AI;S4;2;2;todo;
+A-02;Адаптер frontend/lib/api.ts к AI API;AI+Delivery;S4;4;4;todo;
+A-03;Календарный resolver: reference_date, timezone, относительные дни;AI;S11;6;6;todo;
+A-04;Место: полное название и адрес, «как обычно» → null;AI;S2;3;3;todo;
+A-05;Цена: «бесплатно» = 0, тарифы парами;AI;S2;2;2;todo;
+A-06;Защита от инъекций: данные отдельно от инструкций;AI;S12;4;4;todo;
+D-01;Форма: поле даты, без даты сборка недоступна;Delivery;S1;2;2;todo;
+D-02;Карточка подтверждения критичных полей;Delivery;S2,S3;5;5;todo;
+D-03;Страница читает событие из БД по ID;Delivery;S7;4;4;todo;
+D-04;Регистрация: сохранение, ID, идемпотентность;Delivery;S8;5;5;todo;
+D-05;Список заявок в кабинете эксперта;Delivery;S9;3;3;todo;
+D-06;VK publisher в тестовое сообщество и статусы каналов;Delivery;S6;6;6;todo;
+D-07;Mailer через тестовый SMTP и письмо-уведомление;Delivery;S6,S10;4;4;todo;
+D-08;Версии события и API изменения времени/места;Delivery;S10;4;4;todo;
+D-09;UI правки: diff по каналам и итоговый статус;Delivery;S10;4;4;todo;
+D-10;CI/CD: автодеплой на сервер;Delivery;S13;6;6;todo;
+D-11;Мониторинг: health, latency, ошибки, алерт;Delivery;S13;5;5;todo;
+Q-01;Regression suite: даты, место, цена в CI;Quality;S13;4;4;todo;
+Q-02;Adversarial-набор: расширить, S1 ≥ 90%;Quality;S12;4;4;todo;
+Q-03;Сравнительный прогон и новый порог M2;Quality;S4;3;3;todo;
+Q-04;E2E smoke UC-01/02/04 на стенде;Quality;S10;4;4;todo;
