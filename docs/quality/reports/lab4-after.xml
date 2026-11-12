@@ -1,4 +1,3 @@
-This XML file does not appear to have any style information associated with it. The document tree is shown below.
 <testsuites name="pytest tests">
 <testsuite name="pytest" errors="0" failures="0" skipped="0" tests="42" time="7.861" timestamp="2026-11-12T22:30:22.828784+03:00">
 <testcase classname="tests.evals.test_dataset" name="test_v2_schema_and_ci_splits" time="0.009"/>
