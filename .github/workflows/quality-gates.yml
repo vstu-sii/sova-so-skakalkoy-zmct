@@ -26,6 +26,10 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-ai.txt
       - run: pip install -r requirements-ai.txt
+      - name: Verify tracked quality gate inputs
+        run: |
+          git ls-files --error-unmatch tests/evals/quality_gate.py tests/evals/quality-thresholds.json docs/quality/golden-dataset/v3.jsonl
+          python -m tests.evals.quality_gate --help
       - run: python -m pytest -q
 
   full-evals:
