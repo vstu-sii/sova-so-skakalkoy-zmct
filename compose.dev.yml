@@ -1,4 +1,5 @@
-name: event-platform
+name: ${COMPOSE_PROJECT_NAME:-event-platform}
+
 services:
   ollama:
     image: ollama/ollama:0.40.13
@@ -12,80 +13,77 @@ services:
       OLLAMA_MAX_QUEUE: '2'
       OLLAMA_KEEP_ALIVE: '0'
     volumes:
-    - ollama_data:/root/.ollama
+      - ollama_data:/root/.ollama
     networks:
-    - backend-net
+      - backend-net
     healthcheck:
-      test:
-      - CMD
-      - ollama
-      - list
+      test: ["CMD", "ollama", "list"]
       interval: 10s
       timeout: 5s
       retries: 30
       start_period: 20s
+    profiles: ["ai"]
+
   db:
     image: postgres:16-alpine
-    container_name: event_platform_db
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-event_platform}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       POSTGRES_DB: ${POSTGRES_DB:-event_platform}
     ports:
-    - 5432:5432
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-    - db_data:/var/lib/postgresql/data
-    - ./database/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+      - db_data:/var/lib/postgresql/data
+      - ./database/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
     networks:
-    - backend-net
+      - backend-net
     healthcheck:
-      test:
-      - CMD-SHELL
-      - pg_isready -U ${POSTGRES_USER:-event_platform}
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-event_platform}"]
       interval: 5s
       timeout: 5s
       retries: 5
+
   redis:
     image: redis:7-alpine
-    container_name: event_platform_redis
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_redis
     restart: unless-stopped
     ports:
-    - 6379:6379
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
-    - redis_data:/data
+      - redis_data:/data
     networks:
-    - backend-net
+      - backend-net
     healthcheck:
-      test:
-      - CMD
-      - redis-cli
-      - ping
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
+
   api-gateway:
     image: nginx:alpine
-    container_name: event_platform_api_gateway
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_api_gateway
     restart: unless-stopped
     ports:
-    - 8000:80
+      - "${GATEWAY_PORT:-8000}:80"
     networks:
-    - frontend-net
-    - backend-net
+      - frontend-net
+      - backend-net
     depends_on:
-    - extractor
-    - page-composer
-    - vk-publisher
-    - mailer
+      - extractor
+      - page-composer
+      - vk-publisher
+      - mailer
+
   extractor:
     build:
       context: ./services/extractor
       dockerfile: Dockerfile
-    container_name: event_platform_extractor
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_extractor
     restart: unless-stopped
     ports:
-    - 127.0.0.1:8001:8000
+      - "${EXTRACTOR_PORT:-8001}:8000"
     environment:
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       LLM_MODEL: ${LLM_MODEL:-qwen2.5:1.5b}
@@ -98,177 +96,190 @@ services:
       EXTRACTOR_DEMO_TOKEN: ${EXTRACTOR_DEMO_TOKEN:-}
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
     env_file:
-    - path: .env
-      required: false
+      - path: .env
+        required: false
     networks:
-    - backend-net
+      - backend-net
     depends_on:
       ollama:
         condition: service_healthy
+        required: false
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+
   vk-publisher:
     build:
       context: ./services/vk-publisher
       dockerfile: Dockerfile
-    container_name: event_platform_vk_publisher
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_vk_publisher
     restart: unless-stopped
     ports:
-    - 8003:8000
+      - "${VK_PUBLISHER_PORT:-8003}:8000"
     env_file:
-    - path: .env
-      required: false
+      - path: .env
+        required: false
     networks:
-    - backend-net
+      - backend-net
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+
   mailer:
     build:
       context: ./services/mailer
       dockerfile: Dockerfile
-    container_name: event_platform_mailer
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_mailer
     restart: unless-stopped
     ports:
-    - 8004:8000
+      - "${MAILER_PORT:-8004}:8000"
     env_file:
-    - path: .env
-      required: false
+      - path: .env
+        required: false
     networks:
-    - backend-net
+      - backend-net
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+
   page-composer:
     build:
       context: ./services/page-composer
       dockerfile: Dockerfile
-    container_name: event_platform_page_composer
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_page_composer
     restart: unless-stopped
     ports:
-    - 8002:8000
+      - "${COMPOSER_PORT:-8002}:8000"
     env_file:
-    - path: .env
-      required: false
+      - path: .env
+        required: false
     networks:
-    - backend-net
+      - backend-net
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+
   site:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: event_platform_site
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_site
     restart: unless-stopped
     ports:
-    - 127.0.0.1:8010:3000
+      - "${SITE_PORT:-8010}:3000"
     environment:
       EXTRACTOR_URL: http://extractor:8000
       COMPOSER_URL: http://page-composer:8000
     networks:
-    - frontend-net
-    - backend-net
+      - frontend-net
+      - backend-net
     depends_on:
-    - extractor
-    - page-composer
+      - extractor
+      - page-composer
+
   prometheus:
     image: prom/prometheus:v2.51.0
     platform: linux/amd64
-    container_name: event_platform_prometheus
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_prometheus
     user: '65534'
     restart: unless-stopped
     volumes:
-    - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    - prometheus_data:/prometheus
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
     networks:
-    - backend-net
+      - backend-net
     command:
-    - --config.file=/etc/prometheus/prometheus.yml
-    - --storage.tsdb.path=/prometheus
-    - --storage.tsdb.retention.time=3d
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=3d
     ports:
-    - 127.0.0.1:9090:9090
+      - "${PROMETHEUS_PORT:-9090}:9090"
+
   loki:
     image: grafana/loki:2.9.6
     platform: linux/amd64
-    container_name: event_platform_loki
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_loki
     restart: unless-stopped
     volumes:
-    - ./monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
-    - loki_data:/loki
+      - ./monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
     networks:
-    - backend-net
+      - backend-net
     command: -config.file=/etc/loki/local-config.yaml
+
   tempo:
     image: grafana/tempo:2.4.1
     platform: linux/amd64
-    container_name: event_platform_tempo
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_tempo
     restart: unless-stopped
     volumes:
-    - ./monitoring/tempo/tempo-config.yaml:/etc/tempo/config.yaml:ro
-    - tempo_data:/tmp/tempo
+      - ./monitoring/tempo/tempo-config.yaml:/etc/tempo/config.yaml:ro
+      - tempo_data:/tmp/tempo
     networks:
-    - backend-net
+      - backend-net
     command: -config.file=/etc/tempo/config.yaml
+
   grafana:
     image: grafana/grafana:10.4.0
     platform: linux/amd64
-    container_name: event_platform_grafana
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_grafana
     restart: unless-stopped
     volumes:
-    - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-    - grafana_data:/var/lib/grafana
-    - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_AUTH_ANONYMOUS_ENABLED: 'false'
     networks:
-    - backend-net
+      - backend-net
     depends_on:
-    - prometheus
-    - loki
-    - tempo
+      - prometheus
+      - loki
+      - tempo
     ports:
-    - 127.0.0.1:3002:3000
+      - "${GRAFANA_PORT:-3002}:3000"
+
   alloy:
     image: grafana/alloy:v1.8.3
     platform: linux/amd64
+    container_name: ${COMPOSE_PROJECT_NAME:-event-platform}_alloy
     restart: unless-stopped
     user: 0:0
     environment:
       MONITORING_COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-event-platform}
     networks:
-    - backend-net
+      - backend-net
     command:
-    - run
-    - --storage.path=/var/lib/alloy
-    - /etc/alloy/config.alloy
+      - run
+      - --storage.path=/var/lib/alloy
+      - /etc/alloy/config.alloy
     volumes:
-    - /var/run/docker.sock:/var/run/docker.sock:ro
-    - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
-    - alloy_data:/var/lib/alloy
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy
     depends_on:
-    - loki
+      - loki
+
 networks:
   frontend-net:
     driver: bridge
   backend-net:
     driver: bridge
+
 volumes:
-  db_data: null
-  redis_data: null
-  ollama_data: null
-  prometheus_data: null
-  loki_data: null
-  tempo_data: null
-  grafana_data: null
-  alloy_data: null
+  db_data:
+  redis_data:
+  ollama_data:
+  prometheus_data:
+  loki_data:
+  tempo_data:
+  grafana_data:
+  alloy_data:
