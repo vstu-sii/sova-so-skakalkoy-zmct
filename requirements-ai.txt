@@ -3,6 +3,7 @@ uvicorn==0.54.0
 httpx==0.28.1
 openai==3.41.0
 jsonschema==4.26.0
+PyYAML==6.0.3
 python-dotenv==1.2.4
 opentelemetry-sdk==1.45.1
 tiktoken==0.14.0
