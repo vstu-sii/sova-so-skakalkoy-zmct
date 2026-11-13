@@ -21,6 +21,7 @@ from jsonschema import ValidationError
 
 from ml.contracts import validate
 from ml.models.baseline import Baseline, ModelError, zero_usage
+from ml.output_policy import contains_unreviewed_reference
 from ml.tracing import tracer
 
 router = APIRouter()
@@ -29,6 +30,11 @@ router = APIRouter()
 class ApiError(Exception):
     def __init__(self, status, code, message, retryable=False):
         self.status, self.code, self.message, self.retryable = status, code, message, retryable
+
+
+def enforce_output_policy(value):
+    if contains_unreviewed_reference(value):
+        raise ApiError(422, "VALIDATION_ERROR", "Ответ содержит непроверенную ссылку или разметку. Уточните данные.")
 
 
 class Store:
@@ -105,6 +111,11 @@ async def mutation(request, schema_name, response_name, operation):
             if row[0] != digest:
                 raise ApiError(409, "CONFLICT", "Ключ повторно использован с другим запросом")
             response = json.loads(row[1])
+            try:
+                enforce_output_policy(response)
+            except ApiError:
+                store.db.rollback()
+                raise
             response["request_id"] = request.state.request_id
             if "usage" in response:
                 response["usage"] = zero_usage() | {"cache_hit": True}
@@ -115,6 +126,7 @@ async def mutation(request, schema_name, response_name, operation):
                     span.set_attribute("request_id", request.state.request_id)
                     response = await operation(tenant, data, store)
             validate(response_name, response)
+            enforce_output_policy(response)
             store.db.execute("INSERT INTO idem VALUES (?,?,?,?)", (scope, digest, json.dumps(response), time.time()))
             store.db.commit()
             return response
@@ -190,5 +202,6 @@ async def generate(event_id: UUID, request: Request):
 async def get_event(event_id: UUID, request: Request):
     tenant = owner(request)
     record = request.app.state.store.get(str(event_id), tenant)
+    enforce_output_policy(record["event"])
     return dict(request_id=request.state.request_id, event_id=str(event_id), version=record["version"],
                 event=record["event"], status=record["status"])

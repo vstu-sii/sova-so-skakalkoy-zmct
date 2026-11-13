@@ -1,0 +1,19 @@
+<testsuites name="pytest tests">
+<testsuite name="pytest" errors="0" failures="0" skipped="0" tests="15" time="2.408" timestamp="2026-11-12T20:48:47.271487+03:00">
+<testcase classname="tests.test_quality_lab4" name="test_quarantine_output[registration-https://quality-check.invalid/direct]" time="0.038"/>
+<testcase classname="tests.test_quality_lab4" name="test_quarantine_output[description-https://quality-check.invalid/quoted]" time="0.024"/>
+<testcase classname="tests.test_quality_lab4" name="test_quarantine_output[venue-www.quality-check.invalid]" time="0.025"/>
+<testcase classname="tests.test_quality_lab4" name="test_quarantine_output[description-<span>synthetic fixture</span>]" time="0.024"/>
+<testcase classname="tests.test_quality_lab4" name="test_replay_same_model_output[gd-0010]" time="0.025"/>
+<testcase classname="tests.test_quality_lab4" name="test_replay_same_model_output[gd-0037]" time="0.026"/>
+<testcase classname="tests.test_quality_lab4" name="test_replay_same_model_output[gd-0038]" time="0.026"/>
+<testcase classname="tests.test_quality_lab4" name="test_replay_same_model_output[gd-0039]" time="0.025"/>
+<testcase classname="tests.test_quality_lab4" name="test_replay_same_model_output[gd-0040]" time="0.026"/>
+<testcase classname="tests.test_quality_lab4" name="test_replay_same_model_output[gd-0041]" time="0.027"/>
+<testcase classname="tests.test_quality_lab4" name="test_replay_same_model_output[gd-0042]" time="0.027"/>
+<testcase classname="tests.test_quality_lab4" name="test_replay_same_model_output[gd-0043]" time="0.026"/>
+<testcase classname="tests.test_quality_lab4" name="test_replay_same_model_output[gd-0044]" time="0.027"/>
+<testcase classname="tests.test_quality_lab4" name="test_replay_same_model_output[gd-v2-005]" time="0.027"/>
+<testcase classname="tests.test_quality_lab4" name="test_confirm_then_generate_blocks_unreviewed_draft" time="0.050"/>
+</testsuite>
+</testsuites>
