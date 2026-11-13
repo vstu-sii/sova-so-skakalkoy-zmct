@@ -1,10 +1,17 @@
-# Деплой
+# Деплой (Deploy)
 
 ## Текущее состояние
 
-**Публичного деплоя нет.** Вся система работает локально через Docker Compose.
+### Продакшн (Prod)
 
-### Локальный запуск
+Приложение развернуто на удалённом сервере (VPS). 
+На текущий момент обновление кода на сервере производится **вручную** через SSH.
+
+*   **Прод-URL:** `https://tanya-lab.88-87-92-145.sslip.io/`
+*   **Как обновить вручную:**
 
 ```bash
-docker compose up -d --build
+ssh root@<IP_СЕРВЕРА> -p <ПОРТ_SSH>
+cd /путь/до/проекта/event-platform
+git pull origin main
+docker compose -f compose.dev.yml up -d --build

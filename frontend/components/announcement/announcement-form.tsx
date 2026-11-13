@@ -12,17 +12,18 @@ import { EXAMPLE_RESULT, type ExtractedAnnouncement } from '@/lib/extract-announ
 
 export function AnnouncementForm() {
   const [text, setText] = useState('')
+  const [token, setToken] = useState('')
   const [extractedData, setExtractedData] = useState<ExtractedAnnouncement | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!text.trim() || isLoading) return
+    if (!text.trim() || !token.trim() || isLoading) return
     setIsLoading(true)
     setError(null)
     try {
-      setExtractedData(toExtractedAnnouncement(await extractAnnouncement(text)))
+      setExtractedData(toExtractedAnnouncement(await extractAnnouncement(text, token.trim())))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось извлечь данные')
     } finally {
@@ -33,6 +34,17 @@ export function AnnouncementForm() {
   return (
     <div className="flex flex-col gap-10">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="extractor-token">Токен доступа</Label>
+          <input
+            id="extractor-token"
+            type="password"
+            autoComplete="off"
+            value={token}
+            onChange={(event) => setToken(event.target.value)}
+            className="rounded-md border bg-background px-3 py-2"
+          />
+        </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="announcement" className="sr-only">
             Текст анонса
@@ -57,7 +69,7 @@ export function AnnouncementForm() {
           </p>
         )}
 
-        <Button type="submit" size="lg" disabled={!text.trim() || isLoading} className="self-start">
+        <Button type="submit" size="lg" disabled={!text.trim() || !token.trim() || isLoading} className="self-start">
           <Sparkles aria-hidden="true" />
           {isLoading ? 'Извлекаем…' : 'Извлечь данные'}
         </Button>
