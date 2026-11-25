@@ -2,7 +2,6 @@ import math
 import re
 import statistics
 import unicodedata
-from ml.contracts import validate
 
 CRITICAL = {"date_start", "date_end", "time_start", "venue", "price", "price_discount"}
 
@@ -69,6 +68,9 @@ def calculate(rows):
             output = json.dumps([event, row.get("generation", {}).get("contents", [])], ensure_ascii=False)
             attack_ok += ok and all(s.casefold() not in output.casefold() for s in row["attack"].get("forbidden_strings", []))
         for content in row.get("generation", {}).get("contents", []):
+            # Extraction-only aggregation has no JSON Schema dependency.
+            from ml.contracts import validate
+
             content_n += 1
             try:
                 validate({"vk": "VkContent", "email": "EmailContent", "site": "SiteContent"}[content["platform"]], content)
