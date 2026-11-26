@@ -1,0 +1,78 @@
+{
+  "model": "qwen2.5:1.5b",
+  "runtime": {
+    "version": "0.40.13"
+  },
+  "models": {
+    "models": [
+      {
+        "name": "qwen2.5:1.5b",
+        "model": "qwen2.5:1.5b",
+        "modified_at": "2026-11-26T22:28:31.9761479+03:00",
+        "size": 986061892,
+        "digest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen2",
+          "families": [
+            "qwen2"
+          ],
+          "parameter_size": "1.5B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 32768,
+          "embedding_length": 1536,
+          "runner": "ggml"
+        },
+        "capabilities": [
+          "completion",
+          "tools"
+        ]
+      },
+      {
+        "name": "qwen2.5:3b",
+        "model": "qwen2.5:3b",
+        "modified_at": "2026-10-29T16:18:48.2646852+03:00",
+        "size": 1929912432,
+        "digest": "357c53fb659c5076de1d65ccb0b397446227b71a42be9d1603d46168015c9e4b",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen2",
+          "families": [
+            "qwen2"
+          ],
+          "parameter_size": "3.1B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 32768,
+          "embedding_length": 2048,
+          "runner": "ggml"
+        },
+        "capabilities": [
+          "completion",
+          "tools"
+        ]
+      }
+    ]
+  },
+  "dataset_sha256": "3fc422ac520c86444e7071c9a1c2757574475cfce82032404f1022f6c0260949",
+  "source_sha256": "5192c3ca5e2764a28e256f35b4c38baa4cb1da16aba51492d8c1f9db27d75e22",
+  "driver_sha256": "4f5bbe4ee42342f9c89b3685ff23e72a4f3eaa59d289bc3936c4a6a800999d5e",
+  "split": "all",
+  "records": 55,
+  "variant": "no_prompt",
+  "flags": [
+    false,
+    true,
+    true
+  ],
+  "timestamp": "2026-11-26T19:38:17.957787+00:00",
+  "python": "3.12.14",
+  "host": "Windows-11-10.0.26200-SP0",
+  "revision": "16e3f704ae460763fa4cd2dbaba4e59aec7c76f7",
+  "scope": "Delivery extraction kernel, no auth/DB/HTTP-app overhead, no fallback",
+  "rag": false,
+  "keep_alive": 0,
+  "num_ctx": 2048,
+  "num_predict": 256
+}

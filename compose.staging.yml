@@ -80,6 +80,7 @@ services:
       DATABASE_URL: postgresql://event_platform:changeme@db:5432/event_platform_staging
       OLLAMA_URL: http://ollama:11434
       LLM_MODEL: qwen2.5:1.5b
+      JWT_SECRET: ${JWT_SECRET:-event-platform-staging-jwt-secret-change-me}
     env_file:
       - path: .env.staging
         required: false
@@ -118,6 +119,9 @@ services:
     restart: unless-stopped
     ports:
       - "8013:8000"
+    environment:
+      DATABASE_URL: postgresql://event_platform:changeme@db:5432/event_platform_staging
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:8020}
     env_file:
       - path: .env.staging
         required: false
@@ -137,6 +141,8 @@ services:
     restart: unless-stopped
     ports:
       - "8014:8000"
+    environment:
+      DATABASE_URL: postgresql://event_platform:changeme@db:5432/event_platform_staging
     env_file:
       - path: .env.staging
         required: false
@@ -174,12 +180,16 @@ services:
     environment:
       EXTRACTOR_URL: http://extractor:8000
       COMPOSER_URL: http://page-composer:8000
+      PUBLISHER_URL: http://vk-publisher:8000
+      MAILER_URL: http://mailer:8000
     networks:
       - frontend-net
       - backend-net
     depends_on:
       - extractor
       - page-composer
+      - vk-publisher
+      - mailer
 
 networks:
   frontend-net:

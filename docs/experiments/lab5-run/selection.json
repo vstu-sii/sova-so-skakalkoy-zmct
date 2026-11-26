@@ -1,0 +1,7 @@
+{
+  "selected_variant": "no_prompt",
+  "service_version": "lab5-guarded",
+  "basis": "Retrospective selection on the full corpus, not an independent holdout",
+  "criteria": "M2 lower; M3/E3/S1 not lower; M6 not higher than delivery_before",
+  "source_sha256": "5192c3ca5e2764a28e256f35b4c38baa4cb1da16aba51492d8c1f9db27d75e22"
+}

@@ -1,0 +1,8 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "cpu": "Intel64 Family 6 Model 140 Stepping 1, GenuineIntel",
+  "logical_cpus": 8,
+  "physical_cpus": 4,
+  "ram_gib": 15.69,
+  "execution": "local Ollama, not Delivery server"
+}

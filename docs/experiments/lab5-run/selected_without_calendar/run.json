@@ -1,0 +1,7 @@
+{
+  "execution": "replay of recorded model responses",
+  "new_provider_calls": 0,
+  "inherited_latency_and_usage": true,
+  "source_name": "delivery_before",
+  "source_sha256": "8ee8d068ac920856b766740e8e1e8ad59f1d20bba2bb113efacfb9d0006dd8ec"
+}

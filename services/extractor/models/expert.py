@@ -10,9 +10,10 @@ class Expert(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False)
+    password_hash = Column(String(255))
     name = Column(String(255), nullable=False)
     bio = Column(Text)
-    avatar_url = Column(String(500))
+    avatar_url = Column(Text)
     vk_group_id = Column(String(100))
     vk_access_token = Column(Text)
     smtp_host = Column(String(255))

@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import { CalendarDays, Clock, MapPin, Wifi } from 'lucide-react'
 import { SignupButton } from '@/components/event/signup-button'
 import type { PublicEvent } from '@/lib/public-event'
@@ -16,8 +15,8 @@ export function AboutSection({ event }: { event: PublicEvent }) {
     <section aria-labelledby="about-title" className="flex flex-col gap-5">
       <SectionTitle id="about-title">О мероприятии</SectionTitle>
       <div className="flex flex-col gap-4 text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
-        {event.description.map((paragraph) => (
-          <p key={paragraph.slice(0, 24)}>{paragraph}</p>
+        {event.description.map((paragraph, idx) => (
+          <p key={`${idx}-${paragraph.slice(0, 24)}`}>{paragraph}</p>
         ))}
       </div>
     </section>
@@ -25,12 +24,13 @@ export function AboutSection({ event }: { event: PublicEvent }) {
 }
 
 export function DatePlaceSection({ event }: { event: PublicEvent }) {
+  const dateLabel = event.weekday ? `${event.date}, ${event.weekday}` : event.date
   const rows = [
-    { icon: CalendarDays, label: 'Дата', value: `${event.date}, ${event.weekday}` },
-    { icon: Clock, label: 'Время', value: `${event.time} · ${event.duration}` },
+    { icon: CalendarDays, label: 'Дата', value: dateLabel },
+    { icon: Clock, label: 'Время', value: event.duration ? `${event.time} · ${event.duration}` : event.time },
     event.isOnline
       ? { icon: Wifi, label: 'Формат', value: 'Онлайн', note: 'Ссылка придёт после записи' }
-      : { icon: MapPin, label: 'Адрес', value: event.venue, note: event.address },
+      : { icon: MapPin, label: 'Адрес', value: event.venue, note: event.address !== event.venue ? event.address : undefined },
   ]
 
   return (
@@ -61,7 +61,13 @@ export function DatePlaceSection({ event }: { event: PublicEvent }) {
   )
 }
 
-export function PriceSection({ event }: { event: PublicEvent }) {
+export function PriceSection({
+  event,
+  onSignup,
+}: {
+  event: PublicEvent
+  onSignup?: () => void
+}) {
   return (
     <section
       id="signup"
@@ -73,21 +79,38 @@ export function PriceSection({ event }: { event: PublicEvent }) {
       </h2>
       <dl className="flex flex-col gap-4 sm:flex-row sm:gap-10">
         <div className="flex flex-col gap-1">
-          <dt className="text-sm text-white/60">Стандартный билет</dt>
+          <dt className="text-sm text-white/60">Участие</dt>
           <dd className="text-4xl font-semibold tracking-tight sm:text-5xl">{event.price}</dd>
         </div>
-        <div className="flex flex-col gap-1">
-          <dt className="text-sm text-white/60">Для своих</dt>
-          <dd className="text-4xl font-semibold tracking-tight text-accent-cta-soft sm:text-5xl">
-            {event.friendsPrice}
-          </dd>
-        </div>
+        {event.friendsPrice && (
+          <div className="flex flex-col gap-1">
+            <dt className="text-sm text-white/60">Для своих</dt>
+            <dd className="text-4xl font-semibold tracking-tight text-accent-cta-soft sm:text-5xl">
+              {event.friendsPrice}
+            </dd>
+          </div>
+        )}
       </dl>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
-        <SignupButton className="w-full sm:w-fit" />
-        <p className="text-sm text-white/60">Осталось {event.seatsLeft} мест из 15</p>
+        <SignupButton className="w-full sm:w-fit" onClick={onSignup} />
+        <p className="text-sm text-white/60">
+          {typeof event.subscribersCount === 'number'
+            ? `Уже записалось участников: ${event.subscribersCount}`
+            : `Осталось ${event.seatsLeft} мест из 15`}
+        </p>
       </div>
     </section>
+  )
+}
+
+function getExpertInitials(name: string) {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || '?'
   )
 }
 
@@ -97,39 +120,55 @@ export function ExpertSection({ event }: { event: PublicEvent }) {
     <section aria-labelledby="expert-title" className="flex flex-col gap-5">
       <SectionTitle id="expert-title">Об эксперте</SectionTitle>
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
-        <Image
-          src={expert.photo}
-          alt={`Фото: ${expert.name}`}
-          width={112}
-          height={112}
-          className="size-24 shrink-0 rounded-full object-cover sm:size-28"
-        />
+        {expert.photo ? (
+          // eslint-disable-next-line @next/next/no-img-element -- supports data URLs and remote avatars
+          <img
+            src={expert.photo}
+            alt={`Фото: ${expert.name}`}
+            className="size-24 shrink-0 rounded-full object-cover sm:size-28"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="flex size-24 shrink-0 items-center justify-center rounded-full bg-muted text-2xl font-semibold text-muted-foreground sm:size-28"
+          >
+            {getExpertInitials(expert.name)}
+          </span>
+        )}
         <div className="flex flex-col gap-2">
           <div>
             <p className="text-lg font-semibold">{expert.name}</p>
             <p className="text-sm text-muted-foreground">{expert.role}</p>
           </div>
-          <p className="leading-relaxed text-pretty text-muted-foreground">{expert.bio}</p>
+          {expert.bio && (
+            <p className="leading-relaxed text-pretty text-muted-foreground">{expert.bio}</p>
+          )}
         </div>
       </div>
     </section>
   )
 }
 
-export function FinalCta({ event }: { event: PublicEvent }) {
+export function FinalCta({
+  event,
+  onSignup,
+}: {
+  event: PublicEvent
+  onSignup?: () => void
+}) {
   return (
     <section
       aria-labelledby="final-cta-title"
       className="flex flex-col items-center gap-5 border-t border-border pt-12 text-center"
     >
       <h2 id="final-cta-title" className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-        Готовы попробовать?
+        Готовы присоединиться?
       </h2>
       <p className="max-w-md text-pretty text-muted-foreground">
-        {event.date}, {event.time} · {event.isOnline ? 'Онлайн' : event.venue}. Осталось{' '}
-        {event.seatsLeft} мест.
+        {event.date}
+        {event.time ? `, ${event.time}` : ''} · {event.isOnline ? 'Онлайн' : event.venue}.
       </p>
-      <SignupButton className="w-full sm:w-fit" />
+      <SignupButton className="w-full sm:w-fit" onClick={onSignup} />
     </section>
   )
 }

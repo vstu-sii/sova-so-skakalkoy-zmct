@@ -118,13 +118,13 @@ def test_uc09_unapproved_event_cannot_generate_or_publish(client):
     ), "uc-unapproved", code=422)
     model._request.assert_awaited_once()
     assert client.post(path + "/publish", json={}, headers=HEADERS).status_code == 404
-    # Delivery stubs expose no dispatch capability.
+    # Delivery services reject unapproved / non-existent draft event IDs without dispatching.
     for name, route, body in [
         ("vk-publisher", "/publish", {"event_id": "draft"}),
         ("mailer", "/send", {"event_id": "draft", "recipients": []}),
     ]:
         with TestClient(load_service(name).app) as channel:
-            assert channel.post(route, json=body).json()["status"] == "not_implemented"
+            assert channel.post(route, json=body).status_code == 404
 
 
 def test_uc10_email_title_special_characters_stay_in_one_header(client):

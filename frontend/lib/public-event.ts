@@ -11,6 +11,7 @@ export type PublicEvent = {
   price: string
   friendsPrice: string
   seatsLeft: number
+  subscribersCount?: number
   description: string[]
   expert: {
     name: string
