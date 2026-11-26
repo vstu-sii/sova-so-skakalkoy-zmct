@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getCurrentEventId, registerForEvent } from '@/lib/api'
+import { getCurrentEventId, subscribeToEvent } from '@/lib/api'
 
 type Errors = Partial<Record<'name' | 'email' | 'consent', string>>
 
@@ -49,7 +49,7 @@ export function RegistrationForm() {
     setIsLoading(true)
     setError(null)
     try {
-      await registerForEvent(getCurrentEventId(), email.trim(), name.trim())
+      await subscribeToEvent(getCurrentEventId(), name.trim(), email.trim())
       setSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось зарегистрироваться')

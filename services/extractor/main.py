@@ -1,39 +1,52 @@
 import asyncio
+from contextlib import asynccontextmanager
+from contextvars import ContextVar
+from datetime import date, datetime, timedelta, timezone
 import json
 import logging
 import os
-import time
-import hashlib
+import re
 import secrets
-from contextvars import ContextVar
+import uuid
 from zoneinfo import ZoneInfo
 
 import httpx
-from fastapi import Request, Response
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import ConfigDict, Field, field_validator
-from starlette.concurrency import run_in_threadpool
-import re
-from datetime import date, datetime, timedelta
-
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from opentelemetry.trace import SpanKind, Status, StatusCode
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from database import get_db
+
+from auth import create_access_token, decode_access_token, hash_password, verify_password
+from budget import DailyBudget
+from database import ensure_schema, get_db
 from models.event import Event
 from models.expert import Expert
-from opentelemetry.trace import Status, StatusCode, SpanKind
-from budget import DailyBudget
+from models.publication import Publication
+from models.subscriber import Subscriber
 from telemetry import CALLS, FAILURES, LIMITS, TOKENS, UNACCOUNTED, log_event, setup, tracer
 
-app = FastAPI(title="extractor")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    ensure_schema()
+    yield
+
+
+app = FastAPI(title="extractor", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000",
-                   "http://localhost:8080", "http://site:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:8010",
+        "http://localhost:8020",
+        "http://localhost:8080",
+        "http://site:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -42,14 +55,11 @@ app.add_middleware(
 setup(app)
 
 
+EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$")
+
+
 class ExtractRequest(BaseModel):
     raw_text: str
-
-
-class RegisterRequest(BaseModel):
-    event_id: str
-    email: str
-    name: str
 
 
 class ExtractResponse(BaseModel):
@@ -57,6 +67,100 @@ class ExtractResponse(BaseModel):
     date: str | None = None
     location: str | None = None
     price: float | None = None
+
+
+class ExpertRegisterRequest(BaseModel):
+    email: str
+    password: str = Field(min_length=6, max_length=128)
+    name: str | None = Field(default=None, max_length=255)
+
+
+class ExpertLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class ExpertOut(BaseModel):
+    id: str
+    email: str
+    name: str
+    bio: str | None = None
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expert: ExpertOut
+
+
+class EventCreateRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    date: str | None = None
+    location: str | None = Field(default=None, max_length=500)
+    price: float | None = Field(default=None, ge=0, le=99999999.99)
+    raw_text: str | None = None
+    description: str | None = None
+    is_online: bool = False
+
+
+class PublicationOut(BaseModel):
+    id: str
+    channel: str
+    status: str
+    external_url: str | None = None
+    sent_count: int = 0
+    published_at: str | None = None
+
+
+class EventOut(BaseModel):
+    id: str
+    expert_id: str
+    title: str
+    description: str | None = None
+    raw_text: str | None = None
+    date: str | None = None
+    location: str | None = None
+    is_online: bool = False
+    price: float | None = None
+    status: str
+    subscribers_count: int = 0
+    publications: list[PublicationOut] = Field(default_factory=list)
+    created_at: str | None = None
+
+
+class PublicExpertOut(BaseModel):
+    name: str
+    bio: str | None = None
+    avatar_url: str | None = None
+
+
+class PublicEventOut(BaseModel):
+    id: str
+    title: str
+    description: str | None = None
+    raw_text: str | None = None
+    date: str | None = None
+    location: str | None = None
+    is_online: bool = False
+    price: float | None = None
+    status: str
+    subscribers_count: int = 0
+    expert: PublicExpertOut
+
+
+class SubscribeRequest(BaseModel):
+    event_id: str
+    name: str = Field(min_length=1, max_length=255)
+    email: str = Field(min_length=3, max_length=255)
+
+
+class SubscribeResponse(BaseModel):
+    status: str
+    id: str
+    event_id: str
+    name: str
+    email: str
+    message: str
 
 
 MONTHS = {
@@ -78,10 +182,10 @@ WEEKDAY_RE = re.compile(
     r"\bв\s+(" + "|".join(WEEKDAYS) + r")\b", re.IGNORECASE)
 
 PRICE_LABEL_RE = re.compile(
-    r"(?:стоимость|цена)\D{0,20}?(\d[\d\s ]*(?:[.,]\d+)?)", re.IGNORECASE
+    r"(?:стоимость|цена)\D{0,20}?(\d[\d\s\u00a0]*(?:[.,]\d+)?)", re.IGNORECASE
 )
 PRICE_CURRENCY_RE = re.compile(
-    r"(\d[\d\s ]*(?:[.,]\d+)?)\s*(?:₽|руб(?:\.|лей|ля|ль)?\b|р\.)", re.IGNORECASE
+    r"(\d[\d\s\u00a0]*(?:[.,]\d+)?)\s*(?:₽|руб(?:\.|лей|ля|ль)?\b|р\.)", re.IGNORECASE
 )
 FREE_RE = re.compile(r"\bбесплатно\b|вход\s+свободный", re.IGNORECASE)
 
@@ -96,7 +200,7 @@ LOCATION_PATTERNS = [
 
 
 def _to_number(raw: str) -> float | None:
-    cleaned = re.sub(r"[\s ]", "", raw).replace(",", ".")
+    cleaned = re.sub(r"[\s\u00a0]", "", raw).replace(",", ".")
     try:
         return float(cleaned)
     except ValueError:
@@ -159,6 +263,66 @@ def parse_title(text: str) -> str:
     return first[:120] if first else "Мероприятие"
 
 
+def parse_event_datetime(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    if cleaned.endswith("Z"):
+        cleaned = cleaned[:-1]
+    try:
+        parsed = datetime.fromisoformat(cleaned)
+        if parsed.tzinfo is not None:
+            parsed = parsed.replace(tzinfo=None)
+        return parsed
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Некорректный формат даты (ожидается ISO, например 2026-11-28T19:00)",
+        ) from exc
+
+
+def parse_uuid(value: str, label: str = "event_id") -> uuid.UUID:
+    try:
+        return uuid.UUID(value)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=404, detail=f"Некорректный {label}") from exc
+
+
+def serialize_event(
+    event: Event,
+    subscribers_count: int = 0,
+    publications: list[Publication] | None = None,
+) -> EventOut:
+    pubs = [
+        PublicationOut(
+            id=str(pub.id),
+            channel=pub.channel,
+            status=pub.status,
+            external_url=pub.external_url,
+            sent_count=pub.sent_count or 0,
+            published_at=pub.published_at.isoformat() if pub.published_at else None,
+        )
+        for pub in (publications or [])
+    ]
+    return EventOut(
+        id=str(event.id),
+        expert_id=str(event.expert_id),
+        title=event.title,
+        description=event.description,
+        raw_text=event.raw_text,
+        date=event.date.isoformat() if event.date else None,
+        location=event.location_resolved or event.location_raw,
+        is_online=bool(event.is_online),
+        price=float(event.price_amount) if event.price_amount is not None else None,
+        status=event.status,
+        subscribers_count=subscribers_count,
+        publications=pubs,
+        created_at=event.created_at.isoformat() if event.created_at else None,
+    )
+
+
 logger = logging.getLogger("uvicorn.error")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434").rstrip("/")
 MODELS = {
@@ -185,14 +349,56 @@ extraction_source = ContextVar("extraction_source", default="unknown")
 
 def authenticated_owner(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> str:
     if credentials is not None:
-        supplied = credentials.credentials.encode("utf-8")
+        raw_token = credentials.credentials
+        supplied = raw_token.encode("utf-8")
         for token, owner in tokens_to_owner.items():
             if secrets.compare_digest(supplied, token.encode("utf-8")):
                 return owner
+        payload = decode_access_token(raw_token)
+        if payload is not None:
+            return payload["sub"]
     LIMITS.labels("denied", "authorization").inc()
     log_event("authorization_denied")
-    raise HTTPException(status_code=401, detail="Требуется действительный токен",
-                        headers={"WWW-Authenticate": "Bearer"})
+    raise HTTPException(
+        status_code=401,
+        detail="Требуется действительный токен",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def get_current_expert(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+    db: Session = Depends(get_db),
+) -> Expert:
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Требуется авторизация",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    payload = decode_access_token(credentials.credentials)
+    if payload is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Недействительный или истекший токен",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        expert_uuid = uuid.UUID(payload["sub"])
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=401,
+            detail="Недействительный токен",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from None
+    expert = db.query(Expert).filter(Expert.id == expert_uuid).first()
+    if expert is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Пользователь не найден",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return expert
 
 
 class LLMFields(BaseModel):
@@ -225,8 +431,12 @@ class LLMFields(BaseModel):
 
 
 def extract_with_regex(text: str) -> dict:
-    return dict(title=parse_title(text), date=parse_date(text),
-                location=parse_location(text), price=parse_price(text))
+    return dict(
+        title=parse_title(text),
+        date=parse_date(text),
+        location=parse_location(text),
+        price=parse_price(text),
+    )
 
 
 async def extract_with_llm(text: str, reservation) -> dict:
@@ -301,77 +511,245 @@ async def extract_with_llm(text: str, reservation) -> dict:
         budget.settle(reservation, actual_tokens)
 
 
-def save_extracted_event(db: Session, text: str, parsed: dict, owner: str) -> str:
-    try:
-        expert = db.query(Expert).filter(
-            Expert.email == "default@example.com").first()
-        if expert is None:
-            expert = Expert(email=email, name="Local Expert")
-            db.add(expert)
-            db.flush()
-        event = Event(
-            expert_id=expert.id, title=parsed["title"], raw_text=text,
-            date=datetime.fromisoformat(
-                parsed["date"]) if parsed["date"] else None,
-            location_raw=parsed["location"], price_amount=parsed["price"],
-        )
-        db.add(event)
-        db.commit()
-        db.refresh(event)
-        return str(event.id)
-    except Exception:
-        db.rollback()
-        raise
+# === Auth endpoints (Experts only) ===
 
+@app.post("/auth/register", response_model=AuthResponse, status_code=201)
+def auth_register(req: ExpertRegisterRequest, db: Session = Depends(get_db)) -> AuthResponse:
+    email = req.email.strip().lower()
+    if not EMAIL_RE.match(email):
+        raise HTTPException(status_code=422, detail="Введите корректный email")
+    existing = db.query(Expert).filter(Expert.email == email).first()
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="Эксперт с таким email уже зарегистрирован")
+
+    name = (req.name or "").strip() or email.split("@", 1)[0]
+    expert = Expert(
+        email=email,
+        password_hash=hash_password(req.password),
+        name=name,
+    )
+    try:
+        db.add(expert)
+        db.commit()
+        db.refresh(expert)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Эксперт с таким email уже зарегистрирован") from None
+
+    token = create_access_token(str(expert.id), expert.email)
+    return AuthResponse(
+        access_token=token,
+        expert=ExpertOut(id=str(expert.id), email=expert.email, name=expert.name, bio=expert.bio),
+    )
+
+
+@app.post("/auth/login", response_model=AuthResponse)
+def auth_login(req: ExpertLoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
+    email = req.email.strip().lower()
+    expert = db.query(Expert).filter(Expert.email == email).first()
+    if expert is None or not verify_password(req.password, expert.password_hash):
+        raise HTTPException(status_code=401, detail="Неверный email или пароль")
+
+    token = create_access_token(str(expert.id), expert.email)
+    return AuthResponse(
+        access_token=token,
+        expert=ExpertOut(id=str(expert.id), email=expert.email, name=expert.name, bio=expert.bio),
+    )
+
+
+@app.get("/auth/me", response_model=ExpertOut)
+def auth_me(expert: Expert = Depends(get_current_expert)) -> ExpertOut:
+    return ExpertOut(id=str(expert.id), email=expert.email, name=expert.name, bio=expert.bio)
+
+
+# === Extraction (Human-in-the-loop: parse only, no DB write) ===
 
 @app.post("/extract", response_model=ExtractResponse)
-async def extract(req: ExtractRequest, request: Request, response: Response,
-                  owner: str = Depends(authenticated_owner), db: Session = Depends(get_db)) -> ExtractResponse:
+async def extract(
+    req: ExtractRequest,
+    request: Request,
+    response: Response,
+    owner: str = Depends(authenticated_owner),
+) -> ExtractResponse:
     text = req.raw_text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="raw_text is empty")
     if len(text) > 1500:
         raise HTTPException(
             status_code=422, detail="Для этого прототипа допустимо до 1500 символов")
-    request_id = request.state.request_id
+    request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
     reservation, reason = budget.reserve(owner, RESERVED_TOKENS)
     if reservation is None:
         LIMITS.labels("rejected", reason).inc()
         log_event("budget_rejected", reason=reason, request_id=request_id)
-        from datetime import timezone
         now = datetime.now(timezone.utc)
         tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         retry_after = max(1, int((tomorrow - now).total_seconds()))
-        raise HTTPException(status_code=429, detail="Дневной бюджет исчерпан",
-                            headers={"Retry-After": str(retry_after)})
+        raise HTTPException(
+            status_code=429,
+            detail="Дневной бюджет исчерпан",
+            headers={"Retry-After": str(retry_after)},
+        )
     if reservation.tier == "economy":
         LIMITS.labels("degraded", reason).inc()
         log_event("budget_degraded", reason=reason, request_id=request_id, model=MODELS["economy"])
     parsed = await extract_with_llm(text, reservation)
     response.headers["X-Model-Tier"] = reservation.tier
     source = extraction_source.get()
-    try:
-        event_id = await run_in_threadpool(save_extracted_event, db, text, parsed, owner)
-    except Exception:
-        log_event("event_save_failed", request_id=request_id)
-        raise HTTPException(
-            status_code=503, detail="Не удалось сохранить мероприятие") from None
     response.headers["X-Extraction-Source"] = source
     response.headers["X-Request-ID"] = request_id
-    logger.info("extract_completed request_id=%s event_id=%s source=%s",
-                request_id, event_id, source)
+    logger.info("extract_completed request_id=%s owner=%s source=%s", request_id, owner, source)
     return ExtractResponse(**parsed)
 
 
-@app.get("/register")
-def register() -> dict:
-    return {"status": "ok", "message": "TODO: implement registration"}
+# === Events CRUD ===
+
+@app.post("/events", response_model=EventOut, status_code=201)
+def create_event(
+    req: EventCreateRequest,
+    expert: Expert = Depends(get_current_expert),
+    db: Session = Depends(get_db),
+) -> EventOut:
+    title = req.title.strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="Название мероприятия не может быть пустым")
+    event_dt = parse_event_datetime(req.date)
+    location = req.location.strip() if req.location and req.location.strip() else None
+    is_online = req.is_online or (location is not None and "онлайн" in location.lower())
+    description = (req.description or "").strip() or (req.raw_text or "").strip() or None
+
+    event = Event(
+        expert_id=expert.id,
+        title=title,
+        description=description,
+        raw_text=(req.raw_text or "").strip() or None,
+        date=event_dt,
+        location_raw=location,
+        is_online=is_online,
+        price_amount=req.price,
+        status="draft",
+    )
+    try:
+        db.add(event)
+        db.commit()
+        db.refresh(event)
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Не удалось сохранить мероприятие") from None
+
+    logger.info("event_created event_id=%s expert_id=%s", event.id, expert.id)
+    return serialize_event(event)
 
 
-@app.post("/register")
-def register_post(req: RegisterRequest) -> dict:
-    # TODO: implement registration (DB in the next step)
-    return {"status": "ok", "message": "TODO: implement registration"}
+@app.get("/events", response_model=list[EventOut])
+def list_expert_events(
+    expert: Expert = Depends(get_current_expert),
+    db: Session = Depends(get_db),
+) -> list[EventOut]:
+    events = (
+        db.query(Event)
+        .filter(Event.expert_id == expert.id)
+        .order_by(Event.created_at.desc())
+        .all()
+    )
+    if not events:
+        return []
+
+    event_ids = [ev.id for ev in events]
+    sub_counts = dict(
+        db.query(Subscriber.event_id, func.count(Subscriber.id))
+        .filter(Subscriber.event_id.in_(event_ids))
+        .group_by(Subscriber.event_id)
+        .all()
+    )
+    pubs = (
+        db.query(Publication)
+        .filter(Publication.event_id.in_(event_ids))
+        .order_by(Publication.created_at.desc())
+        .all()
+    )
+    pubs_by_event: dict[uuid.UUID, list[Publication]] = {}
+    for pub in pubs:
+        pubs_by_event.setdefault(pub.event_id, []).append(pub)
+
+    return [
+        serialize_event(ev, subscribers_count=sub_counts.get(ev.id, 0), publications=pubs_by_event.get(ev.id, []))
+        for ev in events
+    ]
+
+
+@app.get("/events/{event_id}", response_model=PublicEventOut)
+def get_public_event(event_id: str, db: Session = Depends(get_db)) -> PublicEventOut:
+    event_uuid = parse_uuid(event_id, "event_id")
+    event = db.query(Event).filter(Event.id == event_uuid).first()
+    if event is None:
+        raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+
+    expert = db.query(Expert).filter(Expert.id == event.expert_id).first()
+    sub_count = db.query(func.count(Subscriber.id)).filter(Subscriber.event_id == event.id).scalar() or 0
+
+    return PublicEventOut(
+        id=str(event.id),
+        title=event.title,
+        description=event.description or event.raw_text,
+        raw_text=event.raw_text,
+        date=event.date.isoformat() if event.date else None,
+        location=event.location_resolved or event.location_raw,
+        is_online=bool(event.is_online),
+        price=float(event.price_amount) if event.price_amount is not None else None,
+        status=event.status,
+        subscribers_count=int(sub_count),
+        expert=PublicExpertOut(
+            name=expert.name if expert else "Эксперт",
+            bio=expert.bio if expert else None,
+            avatar_url=expert.avatar_url if expert else None,
+        ),
+    )
+
+
+# === Visitor event subscription (Public, no auth required) ===
+
+@app.post("/subscribe", response_model=SubscribeResponse, status_code=201)
+def subscribe(req: SubscribeRequest, db: Session = Depends(get_db)) -> SubscribeResponse:
+    event_uuid = parse_uuid(req.event_id, "event_id")
+    event = db.query(Event).filter(Event.id == event_uuid).first()
+    if event is None:
+        raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+
+    name = req.name.strip()
+    if len(name) < 2:
+        raise HTTPException(status_code=422, detail="Введите имя (минимум 2 символа)")
+
+    email = req.email.strip().lower()
+    if not EMAIL_RE.match(email):
+        raise HTTPException(status_code=422, detail="Введите корректный email")
+
+    existing = (
+        db.query(Subscriber)
+        .filter(Subscriber.event_id == event.id, Subscriber.email == email)
+        .first()
+    )
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="Вы уже записаны на это мероприятие")
+
+    subscriber = Subscriber(event_id=event.id, email=email, name=name)
+    try:
+        db.add(subscriber)
+        db.commit()
+        db.refresh(subscriber)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Вы уже записаны на это мероприятие") from None
+
+    logger.info("subscriber_created event_id=%s subscriber_id=%s", event.id, subscriber.id)
+    return SubscribeResponse(
+        status="ok",
+        id=str(subscriber.id),
+        event_id=str(event.id),
+        name=subscriber.name or name,
+        email=subscriber.email,
+        message="Вы успешно записались на мероприятие!",
+    )
 
 
 @app.get("/health")

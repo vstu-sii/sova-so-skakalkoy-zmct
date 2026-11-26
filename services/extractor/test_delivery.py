@@ -44,7 +44,6 @@ class BudgetTest(unittest.TestCase):
 class ApiTest(unittest.TestCase):
     def test_auth_budget_traces_and_metrics_through_http(self):
         models = []
-        seen_owner = []
         response_body = dict(title="Встреча", date=None, location=None, price=0)
 
         def ollama(request):
@@ -56,10 +55,6 @@ class ApiTest(unittest.TestCase):
                 message={"content": json.dumps(response_body)},
             ))
 
-        def save(_db, _text, _parsed, owner):
-            seen_owner.append(owner)
-            return "demo-event"
-
         exporter = InMemorySpanExporter()
         provider.add_span_processor(SimpleSpanProcessor(exporter))
         real_client = httpx.AsyncClient
@@ -68,7 +63,6 @@ class ApiTest(unittest.TestCase):
         self.addCleanup(main.app.dependency_overrides.clear)
         with patch.object(main, "budget", DailyBudget((1, 10000), (1, 10000))), \
              patch.object(main, "tokens_to_owner", {"a-demo": "a", "b-demo": "b"}), \
-             patch.object(main, "save_extracted_event", side_effect=save), \
              patch.object(main.httpx, "AsyncClient", side_effect=lambda **kw: real_client(transport=transport, **kw)), \
              TestClient(main.app) as client:
             body = {"raw_text": "Синтетический анонс"}
@@ -84,7 +78,7 @@ class ApiTest(unittest.TestCase):
             self.assertEqual(second.headers["X-Extraction-Source"], "ollama")
             self.assertTrue(third.headers["Retry-After"].isdigit())
             self.assertEqual(models, [main.MODELS["standard"], main.MODELS["economy"], main.MODELS["standard"]])
-            self.assertEqual(seen_owner, ["a", "a", "b"])
+            self.assertEqual(first.json(), response_body)
             metrics = client.get("/metrics").text
             self.assertIn('extractor_llm_tokens_total{direction="input",tier="economy"} 420.0', metrics)
             self.assertIn('extractor_limit_decisions_total{decision="degraded",reason="requests"} 1.0', metrics)

@@ -94,6 +94,7 @@ services:
       ECONOMY_REQUEST_LIMIT: ${ECONOMY_REQUEST_LIMIT:-20}
       ECONOMY_TOKEN_LIMIT: ${ECONOMY_TOKEN_LIMIT:-20000}
       EXTRACTOR_DEMO_TOKEN: ${EXTRACTOR_DEMO_TOKEN:-}
+      JWT_SECRET: ${JWT_SECRET:-event-platform-dev-jwt-secret-change-me}
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
     env_file:
       - path: .env
@@ -117,6 +118,9 @@ services:
     restart: unless-stopped
     ports:
       - "${VK_PUBLISHER_PORT:-8003}:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://event_platform:changeme@db:5432/event_platform}
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:8010}
     env_file:
       - path: .env
         required: false
@@ -136,6 +140,8 @@ services:
     restart: unless-stopped
     ports:
       - "${MAILER_PORT:-8004}:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://event_platform:changeme@db:5432/event_platform}
     env_file:
       - path: .env
         required: false
@@ -177,12 +183,16 @@ services:
     environment:
       EXTRACTOR_URL: http://extractor:8000
       COMPOSER_URL: http://page-composer:8000
+      PUBLISHER_URL: http://vk-publisher:8000
+      MAILER_URL: http://mailer:8000
     networks:
       - frontend-net
       - backend-net
     depends_on:
       - extractor
       - page-composer
+      - vk-publisher
+      - mailer
 
   prometheus:
     image: prom/prometheus:v2.51.0
