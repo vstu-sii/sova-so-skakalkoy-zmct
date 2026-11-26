@@ -1,3 +1,5 @@
+from prometheus_fastapi_instrumentator import Instrumentator
+from typing import Any
 from typing import Annotated, Any
 
 from fastapi import FastAPI
@@ -5,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 app = FastAPI(title="page-composer")
+Instrumentator(excluded_handlers=["/metrics", "/health"]).instrument(app).expose(app, include_in_schema=False)
 
 app.add_middleware(
     CORSMiddleware,

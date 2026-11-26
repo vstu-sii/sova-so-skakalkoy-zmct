@@ -34,12 +34,15 @@ export class ApiError extends Error {
   }
 }
 
-async function post<T>(url: string, body: unknown): Promise<T> {
+async function post<T>(url: string, body: unknown, token?: string): Promise<T> {
   let response: Response
   try {
     response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(body),
     })
   } catch {
@@ -60,8 +63,8 @@ async function post<T>(url: string, body: unknown): Promise<T> {
   return (await response.json()) as T
 }
 
-export function extractAnnouncement(rawText: string): Promise<ExtractResponse> {
-  return post<ExtractResponse>(`${EXTRACTOR_URL}/extract`, { raw_text: rawText })
+export function extractAnnouncement(rawText: string, token: string): Promise<ExtractResponse> {
+  return post<ExtractResponse>(`${EXTRACTOR_URL}/extract`, { raw_text: rawText }, token)
 }
 
 export function registerForEvent(
