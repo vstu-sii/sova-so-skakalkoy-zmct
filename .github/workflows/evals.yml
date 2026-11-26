@@ -3,6 +3,12 @@ name: Baseline evals
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'ml/**'
+      - 'backend/**'
+      - 'api/**'
+      - 'docs/quality/golden-dataset/**'
+      - 'tests/evals/**'
   push:
     branches: [feature/quality_lab3]
     paths:

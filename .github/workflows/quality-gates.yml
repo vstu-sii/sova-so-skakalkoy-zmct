@@ -18,8 +18,26 @@ jobs:
     name: Critical paths and output boundary
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      run_ml_evals: ${{ steps.scope.outputs.run_ml_evals }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect whether ML or golden dataset files changed
+        id: scope
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "run_ml_evals=true" >> "$GITHUB_OUTPUT"
+          else
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            if git diff --name-only "FETCH_HEAD...HEAD" | grep -Eq '^(ml/|backend/|docs/quality/golden-dataset/|tests/evals/)'; then
+              echo "run_ml_evals=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "run_ml_evals=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -59,6 +77,8 @@ jobs:
 
   full-evals:
     name: Full golden dataset shard ${{ matrix.shard }}
+    needs: [critical]
+    if: needs.critical.outputs.run_ml_evals == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -124,27 +144,38 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Fail if any dependency failed
+      - name: Fail if any required dependency failed
         env:
           CRITICAL: ${{ needs.critical.result }}
+          RUN_ML: ${{ needs.critical.outputs.run_ml_evals }}
           EVALS: ${{ needs.full-evals.result }}
-        run: test "$CRITICAL" = success && test "$EVALS" = success
+        run: |
+          test "$CRITICAL" = success
+          if [ "$RUN_ML" = "true" ]; then
+            test "$EVALS" = success
+          else
+            echo "No ML/golden-dataset files changed in this PR; critical suite passed."
+          fi
       - uses: actions/checkout@v4
+        if: needs.critical.outputs.run_ml_evals == 'true'
       - uses: actions/setup-python@v5
+        if: needs.critical.outputs.run_ml_evals == 'true'
         with:
           python-version: '3.12'
       - uses: actions/download-artifact@v4
+        if: needs.critical.outputs.run_ml_evals == 'true'
         with:
           pattern: quality-shard-*
           path: quality-results
       - name: Enforce quality thresholds on complete results
+        if: needs.critical.outputs.run_ml_evals == 'true'
         run: >-
           python -m tests.evals.quality_gate merge
           --results quality-results
           --thresholds tests/evals/quality-thresholds.json
           --output quality-report.json
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: needs.critical.outputs.run_ml_evals == 'true' && always()
         with:
           name: quality-gate-report
           path: quality-report.json
