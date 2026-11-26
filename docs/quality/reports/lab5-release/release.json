@@ -1,0 +1,7 @@
+{
+  "tag": "v1.0.0-demo",
+  "commit": "16e3f704ae460763fa4cd2dbaba4e59aec7c76f7",
+  "exit_code": 1,
+  "source": "Observed local CLI run on detached tag; see run.json and metrics.json",
+  "command": "python -m tests.evals.run --dataset docs/quality/golden-dataset/v3.jsonl --split all --repeats 1 --gate tests/evals/quality-thresholds.json"
+}
