@@ -228,7 +228,9 @@ event-platform/
 - [docs/use-cases/](docs/use-cases/) — use cases v3 (UC-01, UC-02, UC-04 в MVP; UC-03 вырезан)
 - [docs/mvp-scope.md](docs/mvp-scope.md) — скоуп MVP к Demo Day и вырезанное с причинами
 - [docs/burndown.md](docs/burndown.md) — burndown спринта лабы 4 (обновление: `node scripts/burndown.mjs record`)
-- [docs/acceptance.md](docs/acceptance.md) — еженедельные приёмки инкрементов по DoD
+- [docs/acceptance.md](docs/acceptance.md) — еженедельные приёмки инкрементов по DoD и итоговая приёмка продукта (лаба 5)
+- [docs/north-star.md](docs/north-star.md) — замер North Star: факт против цели (лаба 5)
+- [docs/demo-narrative.md](docs/demo-narrative.md) — нарратив и черновик слайдов Demo Day
 - [docs/iteration-notes.md](docs/iteration-notes.md) — итоги прототипирования (лаба 3)
 - [docs/product/roadmap.md](docs/product/roadmap.md) — роадмап и не-скоуп
 

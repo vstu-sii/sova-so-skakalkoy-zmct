@@ -23,7 +23,8 @@ const MD = join(ROOT, 'docs/burndown.md')
 
 const SPRINT_START = '2026-11-12'
 const SPRINT_END = '2026-12-09'
-const ACCEPTANCE_DAYS = ['2026-11-18', '2026-11-25', '2026-12-02', '2026-12-09']
+// 18.11 и 25.11 — среды; с недели 3 приёмки по четвергам. 10.12 рисуется на правом краю.
+const ACCEPTANCE_DAYS = ['2026-11-18', '2026-11-25', '2026-12-03', '2026-12-10']
 const STATUSES = new Set(['todo', 'doing', 'done', 'cut'])
 
 // ---------- данные ----------

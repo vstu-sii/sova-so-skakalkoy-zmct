@@ -19,10 +19,10 @@
 <text x="227" y="32" text-anchor="middle" fill="#8250df" font-size="10">приёмка 18.11</text>
 <line x1="398" x2="398" y1="36" y2="316" stroke="#c9a0dc" stroke-dasharray="2 3"/>
 <text x="398" y="32" text-anchor="middle" fill="#8250df" font-size="10">приёмка 25.11</text>
-<line x1="569" x2="569" y1="36" y2="316" stroke="#c9a0dc" stroke-dasharray="2 3"/>
-<text x="569" y="32" text-anchor="middle" fill="#8250df" font-size="10">приёмка 02.12</text>
+<line x1="603.2" x2="603.2" y1="36" y2="316" stroke="#c9a0dc" stroke-dasharray="2 3"/>
+<text x="603.2" y="32" text-anchor="middle" fill="#8250df" font-size="10">приёмка 03.12</text>
 <line x1="740" x2="740" y1="36" y2="316" stroke="#c9a0dc" stroke-dasharray="2 3"/>
-<text x="740" y="32" text-anchor="middle" fill="#8250df" font-size="10">приёмка 09.12</text>
+<text x="740" y="32" text-anchor="middle" fill="#8250df" font-size="10">приёмка 10.12</text>
 <text x="56" y="332" text-anchor="end" transform="rotate(-45 56 332)" fill="#57606a">старт</text>
 <line x1="56" x2="56" y1="316" y2="320" stroke="#8c959f"/>
 <line x1="90.2" x2="90.2" y1="316" y2="320" stroke="#8c959f"/>
@@ -57,9 +57,11 @@
 <line x1="740" x2="740" y1="316" y2="320" stroke="#8c959f"/>
 <line x1="56" x2="740" y1="316" y2="316" stroke="#8c959f"/>
 <line x1="56" y1="80.33333333333333" x2="740" y2="316" stroke="#8c959f" stroke-width="1.5" stroke-dasharray="6 4"/>
-<polyline fill="none" stroke="#0969da" stroke-width="2.5" points="56,80.33333333333333 90.2,103.66666666666667"/>
+<polyline fill="none" stroke="#0969da" stroke-width="2.5" points="56,80.33333333333333 90.2,103.66666666666667 398,183 466.4,173.66666666666669"/>
 <circle cx="56" cy="80.33333333333333" r="3.5" fill="#0969da"/>
 <circle cx="90.2" cy="103.66666666666667" r="3.5" fill="#0969da"/>
+<circle cx="398" cy="183" r="3.5" fill="#0969da"/>
+<circle cx="466.4" cy="173.66666666666669" r="3.5" fill="#0969da"/>
 <line x1="56" x2="80" y1="366" y2="366" stroke="#0969da" stroke-width="2.5"/><text x="86" y="370" fill="#1f2328">факт (из burndown-log.csv)</text>
 <line x1="266" x2="290" y1="366" y2="366" stroke="#8c959f" stroke-width="1.5" stroke-dasharray="6 4"/><text x="296" y="370" fill="#1f2328">идеальная линия</text>
 <line x1="416" x2="440" y1="366" y2="366" stroke="#bf8700" stroke-width="1.5"/><text x="446" y="370" fill="#1f2328">скоуп (если менялся)</text>
