@@ -13,16 +13,17 @@ from zoneinfo import ZoneInfo
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from auth import create_access_token, decode_access_token, hash_password, verify_password
 from budget import DailyBudget
-from database import ensure_schema, get_db
+from database import check_db_ready, ensure_schema, get_db
 from models.event import Event
 from models.expert import Expert
 from models.publication import Publication
@@ -55,6 +56,20 @@ app.add_middleware(
 setup(app)
 
 
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(_request: Request, exc: SQLAlchemyError):
+    logger.error("database_unavailable error=%s", type(exc).__name__)
+    log_event("database_unavailable", reason=type(exc).__name__)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "База данных временно недоступна. Повторите запрос позже.",
+            "retryable": True,
+        },
+        headers={"Retry-After": "5"},
+    )
+
+
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$")
 
 
@@ -85,6 +100,57 @@ class ExpertOut(BaseModel):
     email: str
     name: str
     bio: str | None = None
+    avatar_url: str | None = None
+    vk_connected: bool = False
+    vk_group_id: str | None = None
+    email_connected: bool = False
+    smtp_host: str | None = None
+    smtp_user: str | None = None
+
+
+class ProfileUpdateRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=255)
+    bio: str | None = Field(default=None, max_length=1000)
+    avatar_url: str | None = Field(default=None, max_length=500_000)
+
+
+class VkChannelRequest(BaseModel):
+    vk_group_id: str = Field(min_length=1, max_length=255)
+    vk_access_token: str = Field(min_length=10, max_length=2000)
+
+
+class EmailChannelRequest(BaseModel):
+    smtp_host: str = Field(min_length=3, max_length=255)
+    smtp_user: str = Field(min_length=3, max_length=255)
+    smtp_password: str = Field(min_length=1, max_length=500)
+
+
+def serialize_expert(expert: Expert) -> ExpertOut:
+    return ExpertOut(
+        id=str(expert.id),
+        email=expert.email,
+        name=expert.name,
+        bio=expert.bio,
+        avatar_url=expert.avatar_url,
+        vk_connected=bool(expert.vk_group_id and expert.vk_access_token),
+        vk_group_id=expert.vk_group_id,
+        email_connected=bool(expert.smtp_host and expert.smtp_user and expert.smtp_password),
+        smtp_host=expert.smtp_host,
+        smtp_user=expert.smtp_user,
+    )
+
+
+def normalize_vk_group_id(raw: str) -> str:
+    cleaned = raw.strip()
+    cleaned = re.sub(r"^https?://(?:m\.)?vk\.com/", "", cleaned, flags=re.IGNORECASE)
+    cleaned = cleaned.strip("/")
+    m = re.match(r"^(?:club|public|event|-)?(\d+)$", cleaned, flags=re.IGNORECASE)
+    if not m:
+        raise HTTPException(
+            status_code=422,
+            detail="Укажите числовой ID сообщества ВК (например, 123456789 или club123456789)",
+        )
+    return m.group(1)
 
 
 class AuthResponse(BaseModel):
@@ -325,6 +391,10 @@ def serialize_event(
 
 logger = logging.getLogger("uvicorn.error")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434").rstrip("/")
+LLM_CONNECT_TIMEOUT = float(os.getenv("LLM_CONNECT_TIMEOUT", "5.0"))
+LLM_READ_TIMEOUT = float(os.getenv("LLM_READ_TIMEOUT", "150.0"))
+LLM_OVERALL_TIMEOUT = float(os.getenv("LLM_OVERALL_TIMEOUT", "180.0"))
+LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "1"))
 MODELS = {
     "standard": os.getenv("LLM_MODEL", "qwen2.5:1.5b"),
     "economy": os.getenv("LLM_ECONOMY_MODEL", "qwen2.5:0.5b"),
@@ -466,7 +536,7 @@ async def extract_with_llm(text: str, reservation) -> dict:
                      num_predict=OUTPUT_TOKENS, num_thread=2),
     )
     try:
-        async with asyncio.timeout(180):
+        async with asyncio.timeout(LLM_OVERALL_TIMEOUT):
             async with llm_lock:
                 with CALLS.labels(tier).time(), tracer.start_as_current_span(
                     "ollama.chat", kind=SpanKind.CLIENT, record_exception=False,
@@ -475,13 +545,29 @@ async def extract_with_llm(text: str, reservation) -> dict:
                     span.set_attribute("gen_ai.request.model", model)
                     span.set_attribute("app.budget.tier", tier)
                     try:
-                        async with httpx.AsyncClient(
-                            timeout=httpx.Timeout(150.0, connect=5.0), trust_env=False,
-                        ) as client:
-                            response = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
-                            span.set_attribute("http.response.status_code", response.status_code)
-                            response.raise_for_status()
-                            envelope = response.json()
+                        envelope = None
+                        last_exc: Exception | None = None
+                        for attempt in range(LLM_MAX_RETRIES + 1):
+                            try:
+                                async with httpx.AsyncClient(
+                                    timeout=httpx.Timeout(LLM_READ_TIMEOUT, connect=LLM_CONNECT_TIMEOUT),
+                                    trust_env=False,
+                                ) as client:
+                                    response = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
+                                    span.set_attribute("http.response.status_code", response.status_code)
+                                    response.raise_for_status()
+                                    envelope = response.json()
+                                    break
+                            except (httpx.ConnectError, httpx.ReadTimeout, httpx.RemoteProtocolError, httpx.HTTPStatusError) as exc:
+                                last_exc = exc
+                                is_retryable = not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code >= 500
+                                if attempt < LLM_MAX_RETRIES and is_retryable:
+                                    log_event("llm_retry", model=model, tier=tier, attempt=attempt + 1, reason=type(exc).__name__)
+                                    await asyncio.sleep(0.5 * (attempt + 1))
+                                    continue
+                                raise
+                        if envelope is None and last_exc is not None:
+                            raise last_exc
                         counts = [envelope.get("prompt_eval_count"), envelope.get("eval_count")]
                         if all(type(count) is int and count >= 0 for count in counts):
                             actual_tokens = sum(counts)
@@ -539,7 +625,7 @@ def auth_register(req: ExpertRegisterRequest, db: Session = Depends(get_db)) -> 
     token = create_access_token(str(expert.id), expert.email)
     return AuthResponse(
         access_token=token,
-        expert=ExpertOut(id=str(expert.id), email=expert.email, name=expert.name, bio=expert.bio),
+        expert=serialize_expert(expert),
     )
 
 
@@ -553,13 +639,97 @@ def auth_login(req: ExpertLoginRequest, db: Session = Depends(get_db)) -> AuthRe
     token = create_access_token(str(expert.id), expert.email)
     return AuthResponse(
         access_token=token,
-        expert=ExpertOut(id=str(expert.id), email=expert.email, name=expert.name, bio=expert.bio),
+        expert=serialize_expert(expert),
     )
 
 
 @app.get("/auth/me", response_model=ExpertOut)
 def auth_me(expert: Expert = Depends(get_current_expert)) -> ExpertOut:
-    return ExpertOut(id=str(expert.id), email=expert.email, name=expert.name, bio=expert.bio)
+    return serialize_expert(expert)
+
+
+@app.put("/profile", response_model=ExpertOut)
+def update_profile(
+    req: ProfileUpdateRequest,
+    expert: Expert = Depends(get_current_expert),
+    db: Session = Depends(get_db),
+) -> ExpertOut:
+    name = req.name.strip()
+    if len(name) < 2:
+        raise HTTPException(status_code=422, detail="Имя должно содержать минимум 2 символа")
+    expert.name = name
+    expert.bio = (req.bio or "").strip() or None
+    expert.avatar_url = (req.avatar_url or "").strip() or None
+    db.commit()
+    db.refresh(expert)
+    return serialize_expert(expert)
+
+
+@app.put("/profile/channels/vk", response_model=ExpertOut)
+def connect_vk_channel(
+    req: VkChannelRequest,
+    expert: Expert = Depends(get_current_expert),
+    db: Session = Depends(get_db),
+) -> ExpertOut:
+    group_id = normalize_vk_group_id(req.vk_group_id)
+    token = req.vk_access_token.strip()
+    if len(token) < 10:
+        raise HTTPException(status_code=422, detail="Укажите корректный токен доступа ВК")
+    expert.vk_group_id = group_id
+    expert.vk_access_token = token
+    db.commit()
+    db.refresh(expert)
+    logger.info("vk_channel_connected expert_id=%s group_id=%s", expert.id, group_id)
+    return serialize_expert(expert)
+
+
+@app.delete("/profile/channels/vk", response_model=ExpertOut)
+def disconnect_vk_channel(
+    expert: Expert = Depends(get_current_expert),
+    db: Session = Depends(get_db),
+) -> ExpertOut:
+    expert.vk_group_id = None
+    expert.vk_access_token = None
+    db.commit()
+    db.refresh(expert)
+    logger.info("vk_channel_disconnected expert_id=%s", expert.id)
+    return serialize_expert(expert)
+
+
+@app.put("/profile/channels/email", response_model=ExpertOut)
+def connect_email_channel(
+    req: EmailChannelRequest,
+    expert: Expert = Depends(get_current_expert),
+    db: Session = Depends(get_db),
+) -> ExpertOut:
+    smtp_host = req.smtp_host.strip()
+    smtp_user = req.smtp_user.strip()
+    smtp_password = req.smtp_password.strip()
+    if not EMAIL_RE.match(smtp_user):
+        raise HTTPException(status_code=422, detail="Введите корректный email для SMTP")
+    if not smtp_host or not smtp_password:
+        raise HTTPException(status_code=422, detail="Заполните SMTP-сервер и пароль приложения")
+    expert.smtp_host = smtp_host
+    expert.smtp_user = smtp_user
+    expert.smtp_password = smtp_password
+    db.commit()
+    db.refresh(expert)
+    logger.info("email_channel_connected expert_id=%s smtp_host=%s", expert.id, smtp_host)
+    return serialize_expert(expert)
+
+
+@app.delete("/profile/channels/email", response_model=ExpertOut)
+def disconnect_email_channel(
+    expert: Expert = Depends(get_current_expert),
+    db: Session = Depends(get_db),
+) -> ExpertOut:
+    expert.smtp_host = None
+    expert.smtp_user = None
+    expert.smtp_password = None
+    db.commit()
+    db.refresh(expert)
+    logger.info("email_channel_disconnected expert_id=%s", expert.id)
+    return serialize_expert(expert)
 
 
 # === Extraction (Human-in-the-loop: parse only, no DB write) ===
@@ -755,3 +925,15 @@ def subscribe(req: SubscribeRequest, db: Session = Depends(get_db)) -> Subscribe
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "extractor"}
+
+
+@app.get("/ready")
+def ready():
+    db_ok = check_db_ready()
+    if not db_ok:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "degraded", "service": "extractor", "db": "unavailable"},
+            headers={"Retry-After": "5"},
+        )
+    return {"status": "ok", "service": "extractor", "db": "ok"}

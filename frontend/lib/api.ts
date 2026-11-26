@@ -15,6 +15,12 @@ export type ExpertUser = {
   email: string
   name: string
   bio?: string | null
+  avatar_url?: string | null
+  vk_connected?: boolean
+  vk_group_id?: string | null
+  email_connected?: boolean
+  smtp_host?: string | null
+  smtp_user?: string | null
 }
 
 export type AuthResponse = {
@@ -130,7 +136,7 @@ export class ApiError extends Error {
 
 async function request<T>(
   url: string,
-  options: { method?: 'GET' | 'POST'; body?: unknown; token?: string | null } = {},
+  options: { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: unknown; token?: string | null } = {},
 ): Promise<T> {
   const { method = 'GET', body, token } = options
   let response: Response
@@ -186,6 +192,56 @@ export function loginExpert(email: string, password: string): Promise<AuthRespon
 export function fetchCurrentExpert(token: string): Promise<ExpertUser> {
   return request<ExpertUser>(`${EXTRACTOR_URL}/auth/me`, {
     method: 'GET',
+    token,
+  })
+}
+
+export function updateExpertProfile(
+  payload: { name: string; bio: string | null; avatar_url: string | null },
+  token: string,
+): Promise<ExpertUser> {
+  return request<ExpertUser>(`${EXTRACTOR_URL}/profile`, {
+    method: 'PUT',
+    body: payload,
+    token,
+  })
+}
+
+export function connectVkChannel(
+  vkGroupId: string,
+  vkAccessToken: string,
+  token: string,
+): Promise<ExpertUser> {
+  return request<ExpertUser>(`${EXTRACTOR_URL}/profile/channels/vk`, {
+    method: 'PUT',
+    body: { vk_group_id: vkGroupId, vk_access_token: vkAccessToken },
+    token,
+  })
+}
+
+export function disconnectVkChannel(token: string): Promise<ExpertUser> {
+  return request<ExpertUser>(`${EXTRACTOR_URL}/profile/channels/vk`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
+export function connectEmailChannel(
+  smtpHost: string,
+  smtpUser: string,
+  smtpPassword: string,
+  token: string,
+): Promise<ExpertUser> {
+  return request<ExpertUser>(`${EXTRACTOR_URL}/profile/channels/email`, {
+    method: 'PUT',
+    body: { smtp_host: smtpHost, smtp_user: smtpUser, smtp_password: smtpPassword },
+    token,
+  })
+}
+
+export function disconnectEmailChannel(token: string): Promise<ExpertUser> {
+  return request<ExpertUser>(`${EXTRACTOR_URL}/profile/channels/email`, {
+    method: 'DELETE',
     token,
   })
 }

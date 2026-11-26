@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import { CalendarDays, Clock, MapPin, Wifi } from 'lucide-react'
 import { SignupButton } from '@/components/event/signup-button'
 import type { PublicEvent } from '@/lib/public-event'
@@ -104,25 +103,46 @@ export function PriceSection({
   )
 }
 
+function getExpertInitials(name: string) {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || '?'
+  )
+}
+
 export function ExpertSection({ event }: { event: PublicEvent }) {
   const { expert } = event
   return (
     <section aria-labelledby="expert-title" className="flex flex-col gap-5">
       <SectionTitle id="expert-title">Об эксперте</SectionTitle>
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
-        <Image
-          src={expert.photo}
-          alt={`Фото: ${expert.name}`}
-          width={112}
-          height={112}
-          className="size-24 shrink-0 rounded-full object-cover sm:size-28"
-        />
+        {expert.photo ? (
+          // eslint-disable-next-line @next/next/no-img-element -- supports data URLs and remote avatars
+          <img
+            src={expert.photo}
+            alt={`Фото: ${expert.name}`}
+            className="size-24 shrink-0 rounded-full object-cover sm:size-28"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="flex size-24 shrink-0 items-center justify-center rounded-full bg-muted text-2xl font-semibold text-muted-foreground sm:size-28"
+          >
+            {getExpertInitials(expert.name)}
+          </span>
+        )}
         <div className="flex flex-col gap-2">
           <div>
             <p className="text-lg font-semibold">{expert.name}</p>
             <p className="text-sm text-muted-foreground">{expert.role}</p>
           </div>
-          <p className="leading-relaxed text-pretty text-muted-foreground">{expert.bio}</p>
+          {expert.bio && (
+            <p className="leading-relaxed text-pretty text-muted-foreground">{expert.bio}</p>
+          )}
         </div>
       </div>
     </section>

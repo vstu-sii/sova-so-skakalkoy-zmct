@@ -13,7 +13,7 @@ class Expert(Base):
     password_hash = Column(String(255))
     name = Column(String(255), nullable=False)
     bio = Column(Text)
-    avatar_url = Column(String(500))
+    avatar_url = Column(Text)
     vk_group_id = Column(String(100))
     vk_access_token = Column(Text)
     smtp_host = Column(String(255))

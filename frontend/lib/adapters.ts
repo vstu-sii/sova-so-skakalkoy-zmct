@@ -98,8 +98,8 @@ export function publicEventFromApi(api: PublicEventApiResponse): PublicEvent {
     expert: {
       name: api.expert.name || 'Эксперт',
       role: 'Организатор мероприятия',
-      bio: api.expert.bio || 'Эксперт платформы.',
-      photo: api.expert.avatar_url || '/images/expert.png',
+      bio: api.expert.bio || '',
+      photo: api.expert.avatar_url || '',
     },
   }
 }

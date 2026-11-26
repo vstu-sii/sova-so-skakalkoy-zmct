@@ -9,12 +9,14 @@ import { clearAuthSession, getAuthToken, getStoredExpert, setAuthSession } from 
 type AuthContextValue = {
   token: string | null
   expert: ExpertUser | null
+  updateExpertState: (next: ExpertUser) => void
   logout: () => void
 }
 
 const AuthContext = createContext<AuthContextValue>({
   token: null,
   expert: null,
+  updateExpertState: () => {},
   logout: () => {},
 })
 
@@ -27,6 +29,17 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
   const [expert, setExpert] = useState<ExpertUser | null>(null)
   const [ready, setReady] = useState(false)
+
+  const updateExpertState = useCallback(
+    (next: ExpertUser) => {
+      setExpert(next)
+      const currentToken = token || getAuthToken()
+      if (currentToken) {
+        setAuthSession(currentToken, next)
+      }
+    },
+    [token],
+  )
 
   const logout = useCallback(() => {
     clearAuthSession()
@@ -61,7 +74,6 @@ export function AuthGuard({ children }: { children: ReactNode }) {
           router.replace('/login')
           return
         }
-        // Если бэкенд временно недоступен, но токен есть в localStorage — не выкидываем на login
         setReady(true)
       })
 
@@ -82,7 +94,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ token, expert, logout }}>
+    <AuthContext.Provider value={{ token, expert, updateExpertState, logout }}>
       {children}
     </AuthContext.Provider>
   )
