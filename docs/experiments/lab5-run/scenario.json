@@ -1,0 +1,32 @@
+[
+  {
+    "version": "delivery_before",
+    "status": 200,
+    "latency_ms": 6546.751700108871,
+    "input_tokens": 411.0,
+    "output_tokens": 59.0,
+    "source": "ollama",
+    "tier": "standard",
+    "response": {
+      "title": "Границы",
+      "date": "2026-12-20T18:00:00",
+      "location": "Москва, Лесная 10",
+      "price": null
+    }
+  },
+  {
+    "version": "lab5-guarded",
+    "status": 200,
+    "latency_ms": 3087.0397000107914,
+    "input_tokens": 411.0,
+    "output_tokens": 59.0,
+    "source": "ollama",
+    "tier": "standard",
+    "response": {
+      "title": "Границы",
+      "date": "2026-12-20T18:00:00",
+      "location": "Москва, Лесная 10",
+      "price": 0.0
+    }
+  }
+]

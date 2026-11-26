@@ -1,0 +1,7 @@
+{
+  "execution": "replay of recorded model responses",
+  "new_provider_calls": 0,
+  "inherited_latency_and_usage": true,
+  "source_name": "no_prompt",
+  "source_sha256": "31bd58d036fb322ba12bcbfe2ce92f19a552794890e6b9f592830c503d1654f6"
+}
