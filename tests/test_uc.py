@@ -1,5 +1,6 @@
 """Traceable critical UC checks using real HTTP handlers and local SQLite."""
 import importlib.util
+import sys
 import json
 from email.message import EmailMessage
 from pathlib import Path
@@ -19,7 +20,11 @@ ROOT = Path(__file__).resolve().parents[1]
 def load_service(name):
     spec = importlib.util.spec_from_file_location(name, ROOT / "services" / name / "main.py")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    sys.path.insert(0, str(ROOT / "services" / name))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.pop(0)
     return module
 
 
@@ -118,13 +123,13 @@ def test_uc09_unapproved_event_cannot_generate_or_publish(client):
     ), "uc-unapproved", code=422)
     model._request.assert_awaited_once()
     assert client.post(path + "/publish", json={}, headers=HEADERS).status_code == 404
-    # Delivery stubs expose no dispatch capability.
+    # Delivery services reject unapproved / non-existent draft event IDs without dispatching.
     for name, route, body in [
         ("vk-publisher", "/publish", {"event_id": "draft"}),
         ("mailer", "/send", {"event_id": "draft", "recipients": []}),
     ]:
         with TestClient(load_service(name).app) as channel:
-            assert channel.post(route, json=body).json()["status"] == "not_implemented"
+            assert channel.post(route, json=body).status_code == 401
 
 
 def test_uc10_email_title_special_characters_stay_in_one_header(client):

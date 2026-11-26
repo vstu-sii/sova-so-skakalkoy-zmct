@@ -1,0 +1,14 @@
+[
+  {
+    "service": "vk-publisher",
+    "status": 200,
+    "mock_db_commit_calls": 1,
+    "external_dispatch": false
+  },
+  {
+    "service": "mailer",
+    "status": 200,
+    "mock_db_commit_calls": 1,
+    "external_dispatch": false
+  }
+]

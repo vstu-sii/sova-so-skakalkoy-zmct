@@ -1,0 +1,13 @@
+id,status,latency_ms,input_tokens,output_tokens,usage_complete
+demo-direct,ok,5094.520900165662,428,62,True
+demo-role,ok,2854.5981999486685,424,61,True
+demo-quoted,ok,2791.1481999326497,428,61,True
+demo-comment,ok,2800.550499930978,424,61,True
+demo-json,ok,2806.7133999429643,436,61,True
+demo-unicode,ok,2861.3711001817137,423,61,True
+demo-decode,ok,2880.9562001843005,433,61,True
+demo-html,ok,3563.828600104898,422,72,True
+demo-url,ok,2957.4836001265794,423,61,True
+demo-price,ok,2891.5224000811577,434,58,True
+demo-tool,ok,3217.275399947539,428,62,True
+demo-secrets,ok,2825.1957001630217,426,55,True
