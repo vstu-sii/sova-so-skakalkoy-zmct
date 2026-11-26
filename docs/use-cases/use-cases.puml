@@ -1,5 +1,5 @@
 @startuml use-cases
-title Сова со скакалкой — use cases первой версии
+title Сова со скакалкой — use cases MVP (v3, 12.11.2026)
 
 left to right direction
 skinparam packageStyle rectangle
@@ -9,30 +9,33 @@ skinparam actorStyle awesome
 actor "Эксперт" as Expert
 actor "Участник" as Guest
 
-actor "ВКонтакте" as VK
-actor "Сервис рассылки" as Mail
+actor "ВКонтакте\n(тестовое сообщество)" as VK
+actor "Сервис рассылки\n(тестовый SMTP)" as Mail
 
 rectangle "Система «Сова со скакалкой»" {
 
   usecase "UC-01\nСобрать и опубликовать\nкомплект анонсов" as UC01
   usecase "UC-02\nОбновить время\nили место" as UC02
-  usecase "UC-03\nИсправить текст\nпосле публикации" as UC03
+  usecase "UC-03\nИсправить текст\nпосле публикации\n<<вырезан из MVP>>" as UC03 #EEEEEE
   usecase "UC-04\nОткрыть страницу\nи записаться" as UC04
 
-  usecase "Проверить извлечённые\nполя в предпросмотре" as Check
+  usecase "Подтвердить карточку\nкритичных полей" as Check
   usecase "Применить изменения\nво все каналы" as Apply
   usecase "Уведомить подписчиков\nоб изменении" as Notify
+  usecase "Просмотреть заявки" as Leads
 }
 
 Expert --> UC01
 Expert --> UC02
-Expert --> UC03
+Expert ..> UC03
+Expert --> Leads
 Guest  --> UC04
 
 UC01 ..> Check : <<include>>
+UC02 ..> Check : <<include>>
 UC02 ..> Apply : <<include>>
-UC03 ..> Apply : <<include>>
-UC02 ..> Notify : <<extend>>
+UC02 ..> Notify : <<include>>
+UC03 ..> UC02 : критичное поле\n→ через UC-02
 
 UC01 --> VK
 UC01 --> Mail
@@ -40,17 +43,12 @@ Apply --> VK
 Notify --> Mail
 
 UC04 ..> UC02 : страница показывает\nактуальные значения
-
-note bottom of UC04
-  Заявка передаётся эксперту.
-  Дальнейшая работа с участниками —
-  вне первой версии (см. roadmap).
-end note
+UC04 ..> Leads : заявка видна\nв кабинете
 
 note right of UC02
-  Самая подтверждённая боль:
-  описана независимо двумя
-  респондентами из трёх.
+  Сценарий North Star:
+  все каналы показывают новое
+  значение ≤ 2 мин, цель 100%.
 end note
 
 @enduml
