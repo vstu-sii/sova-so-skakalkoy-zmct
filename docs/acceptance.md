@@ -143,11 +143,11 @@
 
 | Задача | Решение | Что есть в `main` | Доработка → задача |
 |---|---|---|---|
-| Q-01 Regression suite в CI | ✅ принято | `.github/workflows/quality-gates.yml`: критичные пути, полный golden dataset v3 на живой модели, gate по порогам, проверка, что gate отвергает регрессию по S1; `tests/test_critical_paths.py`, `tests/test_uc.py` | Приложить ссылку на зелёный прогон |
-| A-06 Защита от инъекций | ⚠️ частично, осталось 2 ч | `ml/output_policy.py`: ссылки и HTML в выходе AI API → 422; из 4 атак с маркером блокируются 3 (`security-report-2.md`) | D1-5 |
-| Q-02 Adversarial, S1 ≥ 90% | ⚠️ частично, осталось 2 ч | Порог S1 ≥ 0.90 в gate; набор атак — 10 записей; S1 модели 6/10 | D1-5 |
+| Q-01 Regression suite в CI | ✅ принято | `.github/workflows/quality-gates.yml`: критичные пути, полный golden dataset v3 на живой модели, gate по порогам, проверка, что gate отвергает регрессию по S1; `tests/test_critical_paths.py`, `tests/test_uc.py` | |
+| A-06 Защита от инъекций | ⚠️ частично, осталось 1 ч | `ml/output_policy.py`: ссылки и HTML в выходе AI API → 422; из 4 атак с маркером блокируются 3 (`security-report-2.md`) | D1-5 |
+| Q-02 Adversarial, S1 ≥ 90% | ⚠️ частично, осталось 1 ч | Порог S1 ≥ 0.90 в gate; набор атак — 10 записей; S1 модели 6/10 | D1-5 |
 | Q-03 Новый порог M2 | ⚠️ частично, осталось 1 ч | `quality-thresholds.json`: M2 ≤ 0.65, M6 ≤ 0.12 | D1-6 |
-| D-10 Автодеплой | 🔄 осталось 2 ч | `.github/workflows/deploy.yml` (SSH при push в `main`), `rollback.sh`, staging (`compose.staging.yml`, `docs/environments.md`) | D1-1, D1-2 |
+| D-10 Автодеплой | 🔄 осталось 1 ч | `.github/workflows/deploy.yml` (SSH при push в `main`), `rollback.sh`, staging (`compose.staging.yml`, `docs/environments.md`) | D1-1, D1-2 |
 | D-11 Мониторинг | 🔄 осталось 1 ч | `monitoring/`: Prometheus, Grafana (дашборд, алерты), Loki, Tempo, Alloy; телеметрия extractor | D1-3 |
 | A-03…A-05 Извлечение | 🔄 осталось 2 + 1 + 1 ч | Вариант C доступен в AI API через `AI_EXTRACTION_VARIANT=calendar` | D1-4 |
 | D-01…D-09, A-01, A-02 | 🔄 в работе | Регистрация, страница, ВК и рассылка в `main` пока прежние; реализация — в `feature/delivery_lab5` | D1-7, D1-8 |
