@@ -19,10 +19,10 @@
 <text x="227" y="32" text-anchor="middle" fill="#8250df" font-size="10">приёмка 18.11</text>
 <line x1="398" x2="398" y1="36" y2="316" stroke="#c9a0dc" stroke-dasharray="2 3"/>
 <text x="398" y="32" text-anchor="middle" fill="#8250df" font-size="10">приёмка 25.11</text>
-<line x1="569" x2="569" y1="36" y2="316" stroke="#c9a0dc" stroke-dasharray="2 3"/>
-<text x="569" y="32" text-anchor="middle" fill="#8250df" font-size="10">приёмка 02.12</text>
+<line x1="603.2" x2="603.2" y1="36" y2="316" stroke="#c9a0dc" stroke-dasharray="2 3"/>
+<text x="603.2" y="32" text-anchor="middle" fill="#8250df" font-size="10">приёмка 03.12</text>
 <line x1="740" x2="740" y1="36" y2="316" stroke="#c9a0dc" stroke-dasharray="2 3"/>
-<text x="740" y="32" text-anchor="middle" fill="#8250df" font-size="10">приёмка 09.12</text>
+<text x="740" y="32" text-anchor="middle" fill="#8250df" font-size="10">приёмка 10.12</text>
 <text x="56" y="332" text-anchor="end" transform="rotate(-45 56 332)" fill="#57606a">старт</text>
 <line x1="56" x2="56" y1="316" y2="320" stroke="#8c959f"/>
 <line x1="90.2" x2="90.2" y1="316" y2="320" stroke="#8c959f"/>
