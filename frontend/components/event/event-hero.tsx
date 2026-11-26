@@ -3,7 +3,13 @@ import { CalendarDays, MapPin } from 'lucide-react'
 import { SignupButton } from '@/components/event/signup-button'
 import type { PublicEvent } from '@/lib/public-event'
 
-export function EventHero({ event }: { event: PublicEvent }) {
+export function EventHero({
+  event,
+  onSignup,
+}: {
+  event: PublicEvent
+  onSignup?: () => void
+}) {
   return (
     <section className="relative isolate overflow-hidden bg-neutral-900 text-white">
       <Image
@@ -31,14 +37,15 @@ export function EventHero({ event }: { event: PublicEvent }) {
         <ul className="flex flex-col gap-2 text-base text-white/90 sm:flex-row sm:gap-6">
           <li className="flex items-center gap-2">
             <CalendarDays aria-hidden="true" className="size-5 text-white/70" />
-            {event.date}, {event.time}
+            {event.date}
+            {event.time ? `, ${event.time}` : ''}
           </li>
           <li className="flex items-center gap-2">
             <MapPin aria-hidden="true" className="size-5 text-white/70" />
             {event.isOnline ? 'Онлайн' : event.venue}
           </li>
         </ul>
-        <SignupButton className="w-full sm:w-fit" />
+        <SignupButton className="w-full sm:w-fit" onClick={onSignup} />
       </div>
     </section>
   )

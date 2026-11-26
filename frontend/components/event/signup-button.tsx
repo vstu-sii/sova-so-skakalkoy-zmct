@@ -2,11 +2,17 @@ import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-export function SignupButton({ className }: { className?: string }) {
+export function SignupButton({
+  className,
+  onClick,
+}: {
+  className?: string
+  onClick?: () => void
+}) {
   return (
     <Button
-      render={<a href="/register" />}
-      nativeButton={false}
+      type="button"
+      onClick={onClick}
       className={cn(
         'h-12 gap-2 rounded-full bg-accent-cta px-7 text-base font-semibold text-accent-cta-foreground shadow-sm hover:bg-accent-cta/90',
         className,

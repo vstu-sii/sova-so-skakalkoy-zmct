@@ -1,0 +1,94 @@
+{
+  "timestamp_utc": "2026-11-26T13:38:16.721924+00:00",
+  "run_id": "4017e9aa",
+  "expert_id": "30ea6ecf-581e-4f4c-b037-376e13230de2",
+  "event_id": "ec87546d-e0fa-44e8-a30b-9c87f87b7509",
+  "scenarios": {
+    "F1_ollama_down": {
+      "status": 200,
+      "ms": 8516.94,
+      "extraction_source": "regex",
+      "parsed": {
+        "title": "Встреча 25 декабря в 19:00 в кафе на Невском",
+        "date": "2026-12-25T19:00:00",
+        "location": "в кафе на Невском",
+        "price": 1800.0
+      },
+      "passed": true
+    },
+    "F2_db_down": {
+      "extractor_health": {
+        "status": 200,
+        "ms": 21.21,
+        "retry_after": null,
+        "detail": null
+      },
+      "extractor_ready": {
+        "status": 503,
+        "ms": 4005.0,
+        "retry_after": "5",
+        "detail": null
+      },
+      "vk_ready": {
+        "status": 503,
+        "ms": 4019.51,
+        "retry_after": "5",
+        "detail": null
+      },
+      "mailer_ready": {
+        "status": 503,
+        "ms": 4160.28,
+        "retry_after": "5",
+        "detail": null
+      },
+      "public_event": {
+        "status": 503,
+        "ms": 2296.3,
+        "retry_after": "5",
+        "detail": "База данных временно недоступна. Повторите запрос позже."
+      },
+      "subscribe": {
+        "status": 503,
+        "ms": 2291.21,
+        "retry_after": "5",
+        "detail": "База данных временно недоступна. Повторите запрос позже."
+      },
+      "login": {
+        "status": 503,
+        "ms": 4005.71,
+        "retry_after": "5",
+        "detail": "База данных временно недоступна. Повторите запрос позже."
+      },
+      "vk_publish": {
+        "status": 503,
+        "ms": 4017.21,
+        "retry_after": "5",
+        "detail": "База данных временно недоступна. Повторите попытку позже."
+      },
+      "mailer_send": {
+        "status": 503,
+        "ms": 4004.85,
+        "retry_after": "5",
+        "detail": "База данных временно недоступна. Повторите попытку позже."
+      }
+    },
+    "F2_db_recovery": {
+      "recovered": true,
+      "recovery_ms": 1129.43,
+      "public_event_status": 200
+    },
+    "F3_boundaries": {
+      "extract_no_token": 401,
+      "extract_empty": 400,
+      "extract_too_long": 422,
+      "event_bad_uuid": 404,
+      "subscribe_first": 201,
+      "subscribe_duplicate": 409
+    },
+    "F4_vk_invalid_token": {
+      "status": 502,
+      "ms": 2891.39,
+      "detail": "Не удалось опубликовать пост в ВК: [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1000)"
+    }
+  }
+}

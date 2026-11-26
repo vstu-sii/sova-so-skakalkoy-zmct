@@ -5,9 +5,10 @@
 CREATE TABLE experts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255),
     name VARCHAR(255) NOT NULL,
     bio TEXT,
-    avatar_url VARCHAR(500),
+    avatar_url TEXT,
     vk_group_id VARCHAR(100),
     vk_access_token TEXT,
     smtp_host VARCHAR(255),

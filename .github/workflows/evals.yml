@@ -3,6 +3,12 @@ name: Baseline evals
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'ml/**'
+      - 'backend/**'
+      - 'api/**'
+      - 'docs/quality/golden-dataset/**'
+      - 'tests/evals/**'
   push:
     branches: [feature/quality_lab3]
     paths:
@@ -69,7 +75,7 @@ jobs:
       - name: Verify exact baseline weights
         run: python -m tests.evals.verify_model
       - name: Real mini eval with enforced thresholds
-        run: python -m tests.evals.run --dataset docs/quality/golden-dataset/ci.jsonl --split dev --repeats 1 --generate --gate tests/evals/thresholds.json --output eval-artifacts
+        run: python -m tests.evals.run --dataset docs/quality/golden-dataset/ci.jsonl --split dev --repeats 1 --generate --gate tests/evals/quality-thresholds.json --output eval-artifacts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
